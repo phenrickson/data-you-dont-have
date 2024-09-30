@@ -10,7 +10,7 @@ format:
     number-sections: false
 params:
     season: 2024
-    week: 4
+    week: 6
 ---
 
 ```{r}
@@ -60,10 +60,13 @@ game_predictions <-
   prepare_fcs_teams() |>
   left_join(
     game_info |>
-      select(game_id, start_date, completed)
+      add_game_outcomes() |>
+      select(game_id, start_date, week, home_points, away_points, home_margin, home_win, total_points, completed)
   ) |>
   add_team_scores(
-    teams_data = team_scores
+    teams_data = team_scores,
+    current_season = params$season,
+    current_week = params$week
   )
 
 # add betting lines to game predictions
@@ -71,13 +74,12 @@ game_predictions_and_betting_lines =
   game_predictions |>
   join_betting_lines(betting = betting_lines)
 
-
 ```
 
 
 ```{r}
 add_gt_formatting = function(tbl, ...) {
-
+  
   tbl |>
     gt::opt_row_striping(row_striping = F) |>
     gt::tab_options(table.font.size = 14,
@@ -85,12 +87,14 @@ add_gt_formatting = function(tbl, ...) {
 }
 
 prepare_spread_predictions = function(data) {
-
+  
   data |>
     mutate(
       my_prediction = case_when(
         pred_margin > 0 ~ paste(home_team, pred_margin, sep = " by "),
-        pred_margin < 0 ~ paste(away_team, -1 * pred_margin, sep = " by ")
+        pred_margin < 0 ~ paste(away_team, -1 * pred_margin, sep = " by "),
+        pred_margin == 0 & home_prob > 0.500 ~ paste(home_team, 0.5, sep = " by "),
+        pred_margin == 0 & home_prob < 0.500 ~ paste(away_team, 0.5, sep = " by ")
       ),
       actual = case_when(
         home_margin > 0 ~ paste(home_team, home_margin, sep = " by "),
@@ -118,7 +122,7 @@ prepare_spread_predictions = function(data) {
 }
 
 gt_pred_color = function(tbl, columns, target_columns) {
-
+  
   tbl |>
     gt::data_color(
       columns = columns,
@@ -129,16 +133,19 @@ gt_pred_color = function(tbl, columns, target_columns) {
       direction = "column",
       na_color = "white"
     )
-
+  
 }
 
 spread_predictions_tbl = function(data) {
-
+  
   data |>
     gt_tbl() |>
     gt::cols_align(
       #    columns = -c(home_team, away_team),
       align = "center"
+    ) |>
+    gt::cols_hide(
+      columns = ends_with("_NA")
     ) |>
     gt::cols_merge(
       columns = c("home_team", "away_team"),
@@ -189,9 +196,9 @@ spread_predictions_tbl = function(data) {
 }
 
 plot_vs_betting_lines = function(data) {
-
+  
   data |>
-    ggplot(aes(x = -pred_margin, y = spread_open, label = paste(home_team, away_team, sep = " vs "))) +
+    ggplot(aes(x = -pred_margin, y = spread, label = paste(home_team, away_team, sep = " vs "))) +
     geom_point() +
     geom_text(vjust = -1, size = 1.5, check_overlap = T) +
     geom_abline() +
@@ -200,12 +207,12 @@ plot_vs_betting_lines = function(data) {
     ylab("Vegas Spread") +
     ggpubr::stat_cor(aes(label = ..r.label..)) +
     facet_wrap(paste(season, paste("Week", week)) ~ .)+
-    coord_cartesian(xlim = c(-50, 30),
-                    ylim = c(-50, 30))
+    coord_cartesian(xlim = c(-50, 50),
+                    ylim = c(-50, 50))
 }
 
 betting_lines_tbl = function(data) {
-
+  
   data |>
     gt_tbl() |>
     gt::cols_align(
@@ -262,7 +269,6 @@ The following table displays estimates and predictions for the upcoming week's c
 
 **Prediction** is the average margin of victory for the winning team across all simulations.
 
-
 :::
 
 ```{r}
@@ -277,7 +283,7 @@ game_predictions |>
 
 ## Betting Lines
 
-How do these predictions compare to betting lines? I compare my predicted spread against the opening spread from ESPN Bet.
+How do these predictions compare to betting lines? I compare my predicted spread against the spread from ESPN Bet.
 
 ```{r}
 #| fig-width: 7.5
@@ -289,7 +295,7 @@ game_predictions_and_betting_lines |>
 
 ```
 
-The following table displays my prediction for each game compared to opening betting lines from various providers.
+The following table displays my prediction for each game compared to betting lines from various providers.
 
 ```{r}
 #| column: body-outset-right
@@ -310,52 +316,11 @@ The model predicts the probability that the home team will win and their expecte
 
 ```{r}
 
-assess_games = function(data, groups = c('season', 'season_type', 'week')) {
-
-  class_metrics = yardstick::metric_set(mn_log_loss, accuracy)
-  reg_metrics = yardstick::metric_set(mae)
-
-  # add number of games
-  tmp =
-    data |>
-    group_by(across(any_of(groups))) |>
-    mutate(games = n_distinct(game_id)) |>
-    group_by(across(any_of(groups)), games)
-
-  class =
-    tmp |>
-    class_metrics(
-      truth = home_win,
-      estimate = home_pred,
-      home_prob
-    )
-
-  reg =
-    tmp |>
-    reg_metrics(
-      truth = home_margin,
-      estimate = pred_margin
-    )
-
-  bind_rows(class,
-            reg) |>
-    select(any_of(groups), games, .metric, .estimate) |>
-    mutate_if(is.numeric, round, 3)
-}
-
-pivot_estimates = function(data) {
-  data |>
-    pivot_wider(
-      names_from = c(".metric"),
-      values_from = c(".estimate")
-    )
-}
-
 results_by_week =
   game_predictions |>
   filter(completed == T) |>
   assess_games() |>
-  pivot_estimates() |>
+  # pivot_estimates() |>
   gt_tbl() |>
   gt::cols_align(align = c("center")) |>
   gt::tab_header(title = "Model Results by Week")
@@ -364,7 +329,6 @@ results_overall =
   game_predictions |>
   filter(completed == T) |>
   assess_games(groups = c("season", "season_type")) |>
-  pivot_estimates() |>
   gt_tbl() |>
   gt::cols_align(align = c("center")) |>
   gt::tab_header(title = "Season Model Results")
@@ -376,7 +340,7 @@ The following plot shows my model's predicted margin of victory vs the actual ma
 
 ```{r}
 plot_games_margins = function(data) {
-
+  
   data |>
     ggplot(
       aes(
@@ -398,7 +362,7 @@ plot_games_margins = function(data) {
     xlab("Predicted Home Margin")+
     ylab("Actual Home Margin")+
     guides(color = 'none')
-
+  
 }
 
 results_plot  =
@@ -442,7 +406,7 @@ The following table displays the model's predictions for previous weeks along wi
 #|
 game_predictions |>
   prepare_game_predictions() |>
-  filter(start_date <= Sys.Date() & !is.na(actual)) |>
+  filter(start_date <= Sys.Date() & !is.na(actual) & week < params$week) |>
   group_by(week) |>
   arrange(desc(week), desc(game_interest)) |>
   ungroup() |>
@@ -455,10 +419,18 @@ game_predictions |>
 
 How has the model performed against the spread? I compare my model's predictions against betting lines from various providers.
 
+::: {.callout-note collapse="true"}
+
+## A Note on Assessment
+
+Early versions of this report used the *opening* betting line from providers; I have changed this to base the assessment around the *final* betting line.
+
+:::
+
 ```{r}
 
 add_spread_cover = function(data) {
-
+  
   data |>
     mutate(
       pred_cover = case_when(
@@ -483,36 +455,107 @@ spread_predictions =
   game_predictions_and_betting_lines |>
   filter(completed == T) |>
   filter(!is.na(spread)) |>
-  select(game_id, season, week, home_team, away_team, home_margin, pred_margin, provider, spread, spread_open, spread_margin) |>
+  select(game_id, season, week, home_team, away_team, home_prob, home_margin, pred_margin, provider, spread, spread_open, spread_margin) |>
   add_spread_cover()
 
-spread_predictions |>
-  group_by(season, provider, week) |>
-  mutate(games = n_distinct(game_id)) |>
-  group_by(season, provider, week, games) |>
-  yardstick::accuracy(
-    actual_cover,
-    pred_cover
-  ) |>
-  select(season,provider, week, .metric, .estimate) |>
-  pivot_wider(
-    names_from = c("provider"),
-    values_from = c(".estimate")
-  ) |>
-  mutate_if(is.numeric, round, 3) |>
-  gt_tbl() |>
-  gt::cols_align(
-    align = "center"
+assess_spread = function(data, groups = c("season", "provider", "week")) {
+  
+  
+  accuracy =
+    data |>
+    group_by(across(any_of(groups))) |>
+    mutate(games = n_distinct(game_id)) |>
+    group_by(across(any_of(groups)), games) |>
+    yardstick::accuracy(
+      actual_cover,
+      pred_cover
+    )
+  
+  record = 
+    data |>
+    mutate(correct = case_when(pred_cover == actual_cover ~ 'yes',
+                               pred_cover != actual_cover ~ 'no')) |>
+    filter(!is.na(correct)) |>
+    group_by(across(any_of(groups)), correct) |>
+    count() |>
+    ungroup() |>
+    pivot_wider(
+      names_from = c("correct"),
+      values_from = c("n")
+    ) |>
+    mutate(record = paste(yes, no, sep = "-")) |>
+    select(any_of(groups), record)
+  
+  accuracy |>
+    inner_join(record)
+  
+}
+
+assess_spread_overall= function(data) {
+  
+  
+  week = 
+    data |>
+    assess_spread(groups = c("season", "provider", "week"))
+  
+  season = 
+    data |>
+    assess_spread(groups = c("season", "provider")) |>
+    mutate(week = 'overall')
+  
+  bind_rows(
+    week |>
+      mutate(week = as.character(week)),
+    season
   )
+}
+
+assess_spread_tbl = function(data) {
+  
+  data |>
+    select(season, provider, week, .estimate, record) |>
+    pivot_wider(
+      names_from = c("provider"),
+      values_from = c(".estimate", "record")
+    ) |>
+    mutate_if(is.numeric, round, 3) |>
+    gt_tbl() |>
+    gt::cols_align(
+      align = "center"
+    ) |>
+    cols_merge(
+      columns = ends_with("Bovada"),
+      pattern = "{2} ({1})"
+    ) |>
+    cols_merge(
+      columns = ends_with("DraftKings"),
+      pattern = "{2} ({1})"
+    ) |>
+    cols_merge(
+      columns = ends_with("ESPN Bet"),
+      pattern = "{2} ({1})"
+    ) |>
+    cols_label(
+      .estimate_Bovada = "Bovada",
+      .estimate_DraftKings = 'DraftKings',
+      `.estimate_ESPN Bet` = 'ESPN Bet'
+    ) 
+
+}
+
+spread_predictions |>
+  assess_spread_overall() |>
+  assess_spread_tbl()
 
 ```
 
-The following table displays my model's predictions to date against betting lines.
+The following table displays my model's prediction in previous weeks against betting lines.
 
 ```{r}
 #| column: body-outset-right
 spread_predictions |>
   arrange(desc(week)) |>
+  filter(week != params$week) |>
   prepare_spread_predictions() |>
   spread_predictions_tbl() |>
   add_gt_formatting()
