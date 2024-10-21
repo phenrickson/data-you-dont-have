@@ -927,7 +927,7 @@ summarize_simulations <- function(simulations, seed = 1999) {
       ),
       home_win = factor(home_win, levels = c("yes", "no"))
     ) |>
-    group_by(across(any_of(c("season", "season_type", "season_week", "game_id", "home_team", "away_team")))) |>
+    group_by(across(any_of(c("season", "season_type", "season_week", "sim_from", "game_id", "home_team", "away_team")))) |>
     summarize(
       home_wins = sum(home_win == "yes"),
       pred_margin = round_any(mean(.prediction), .5),
@@ -944,7 +944,7 @@ summarize_simulations <- function(simulations, seed = 1999) {
       ),
       home_pred = factor(home_pred, levels = c("yes", "no"))
     ) |>
-    select(any_of(c("season", "season_type", "season_week", "game_id", "home_team", "away_team", "pred_margin", "home_prob", "home_pred")))
+    select(any_of(c("season", "season_type", "season_week", "sim_from", "game_id", "home_team", "away_team", "pred_margin", "home_prob", "home_pred")))
 }
 
 calculate_game_quality <- function(data, groups = NULL, home_adjust = 3) {
@@ -1315,7 +1315,7 @@ assess_games = function(data, groups = c('season', 'season_type', 'week')) {
     left_join(record)
 }
 
-prepare_games_for_prediction = function(data, estimates) {
+prepare_games_for_prediction = function(data, estimates, season_week) {
   
   prepare_games_internal = function(data) {
     data |>
@@ -1339,17 +1339,71 @@ prepare_games_for_prediction = function(data, estimates) {
              away)
   }
   
-  
   games = 
     data |>
     prepare_games_internal()
   
   games |>
-    join_team_estimates(estimates = estimates)
+    join_team_estimates(estimates = estimates, season_week = season_week)
   
 }
 
-join_team_estimates <- function(data, estimates) {
+get_active_estimates = function(data, season_week) {
+  
+  split_season_week = function(var) {
+    
+    season_week_values = stringr::str_split(var, pattern = "_", simplify = T)
+    selected_season = season_week_values[1]
+    selected_week = season_week_values[2]
+    
+    tibble(season = as.numeric(selected_season), 
+           week = as.numeric(selected_week))
+  }
+  
+  season_week_values = split_season_week(season_week)
+  
+  if (season_week_values$week == 0) {
+    
+    data |>
+      filter(season == season_week_values$season-1) |>
+      group_by(team) |>
+      slice_max(week_date, n =1) |>
+      ungroup() |>
+      select(
+        season, 
+        week_date, 
+        team,
+        overall = postgame_overall,
+        offense = postgame_offense,
+        defense = postgame_defense,
+        special = postgame_special
+      )
+    
+  } else {
+    
+    # join in team estimates
+    data |>
+      filter(season == season_week_values$season & week < season_week_values$week) |>
+      group_by(team) |>
+      slice_max(week_date, n =1) |>
+      ungroup() |>
+      select(
+        season, 
+        week_date, 
+        team,
+        overall = postgame_overall,
+        offense = postgame_offense,
+        defense = postgame_defense,
+        special = postgame_special
+      )
+    
+  }
+  
+}
+
+
+
+join_team_estimates <- function(data, estimates, season_week) {
   
   join_estimates_completed = function(data, estimates) {
     
@@ -1423,28 +1477,11 @@ join_team_estimates <- function(data, estimates) {
     anti_join(completed_with_estimates |> select(game_id),
               by = join_by(game_id))
   
-  # what is the first game that is missing an estimate?
-  min_date = 
-    upcoming |>
-    summarize(min_date = min(start_date)) |>
-    pull(min_date)
-  
   # join in team estimates
   active_team_estimates = 
-    estimates |> 
-    filter(week_date <= min_date) |>
-    group_by(team) |>
-    slice_max(week_date, n =1) |>
-    ungroup() |>
-    select(
-      season, 
-      week_date, 
-      team,
-      overall = postgame_overall,
-      offense = postgame_offense,
-      defense = postgame_defense,
-      special = postgame_special
-    )
+    estimates |>
+    add_season_week() |>
+    get_active_estimates(season_week = season_week)
   
   upcoming_with_estimates = 
     upcoming |>
