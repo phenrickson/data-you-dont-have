@@ -5,6 +5,8 @@ author: "Phil Henrickson"
 format:
   html:
     fig-height: 6
+execute:
+  freeze: auto
 ---
 
 ```{r}
@@ -58,7 +60,7 @@ I use my model of expected points for college football plays to estimate and mea
 
 Recall that an expected points model aims to measure the value of an *individual play* by asking how it affected a team's ability to score points. For an offense this amounts to getting first downs and moving the ball down the field; for a defense it means limiting the other team's ability to sustain drives and score.
 
-Efficiency refers to the idea that good teams, on average, are net positive on the outcomes of plays - they are typically able to drive on offense and stop their opponent on defense.
+Efficiency refers to the idea that good teams, on average, are net positive on the outcomes of plays - they are typically able to move the ball on offense and stop their opponent's drives on defense.
 
 Tangibly, we can measure a team's efficiency by summarizing their net predicted points across all of their plays. For example, the following table shows the the top 5 teams by season in terms of raw overall efficiency for all completed seasons from 2007 to present.
 
@@ -393,7 +395,7 @@ adjusted_efficiency_category_ppa |>
 
 ## Top Teams
 
-Which teams are considered the best overall using this methodology? I examine the top teams based on regular season offensive/defensive efficiency since 2007. 
+Which teams are considered the best overall using this methodology? I examine the top teams based on offensive/defensive efficiency since 2007. 
 
 ```{r}
 #| class: scroll
@@ -406,7 +408,7 @@ adjusted_efficiency_overall_ppa |>
 
 ```
 
-Ohio State 2019 and Alabama 2018 at the top will probably start some fights (remember, this is based only on regular season data), but this looks pretty reasonable overall.
+Ohio State 2019 and Alabama 2018 at the top will probably start some fights but this looks pretty reasonable overall.
 
 I can similarly break this out based on pass/rush offense and defense.
 
