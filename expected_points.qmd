@@ -2,6 +2,8 @@
 title: "Expected Points and College Football"
 subtitle: "Modeling Score Events from Play by Play Data"
 author: "Phil Henrickson"
+execute: 
+  freeze: auto
 ---
 
 ```{r}
@@ -37,9 +39,11 @@ tar_load(prepared_pbp)
 
 I develop and explore an expected points model at the play level for evaluating college football offenses and defenses. The goal of this analysis is to place a value on offensive/defensive plays in terms of their contribution's to a team's *expected points*.
 
-The data comes from collegefootballdata.com, which has play by play data on games from 2000 to present. Each observation represents one play in a game, in which we know the team, the situation (down, time remaining), and the location on the field (yards to go, yards to reach end zone). We have information about the types of plays called as well in a text field.
+The data comes from collegefootballdata.com, which has play by play data on games from 2000 to present. Each observation represents one play in a game, in which we know the team, the situation (down, time remaining), and the location on the field (yards to go, yards to reach end zone). We have information about the types of plays as well in a text field.
 
-<!-- Due to data quality issues, I focus my analysis on the years from 2007 and onwards. -->
+::: {.callout-note}
+Due to data quality issues, I focus my analysis on the years from 2007 and onwards.
+:::
 
 ## Sequences of Play
 
@@ -53,7 +57,7 @@ For each play in a game, I model the probability of the next scoring event that 
 * Opponent field goal (-3 points)
 * Opponent touchdown (-7 points)
 
-Suppose we have two teams, A and B, playing in a game. Team A receives the opening kickoff, drives for a few plays, and then punts. Team B takes over, which starts drive 2, and they drive for a few plays before also punting. Team A then manages to put together a drive that finally scores.
+Suppose we have two teams, A and B, playing in a game. Team A receives the opening kickoff, begins drive #1, drives for a few plays, and then punts. Team B takes over, which starts drive #2, and they drive for a few plays before also punting. Team A then manages to finally put points on the board, scoring a TD on drive #3.
 
 ```{r}
 tibble(
@@ -83,9 +87,9 @@ tibble(
     gt_tbl()
 ```
 
-If the team on offense drives down and scores a TD/FG, this will end the sequence. If the team on offense does not score but punts or turns the ball over, the sequence will continue with the other team now on offense. The sequence will continue until either one team scores, or the half comes to an end. From this, a sequence begins at kickoff and ends at the next kick off. When Team A kicks off to Team B to start drive 4, we start our next sequence, which will end either with one team scoring or at the end of the half.
+If the team on offense drives down and scores a TD/FG, this will end the sequence. If the team on offense does not score but punts or turns the ball over, the sequence will continue with the other team now on offense. The sequence will continue until either one team scores, or the half comes to an end. From this, a sequence begins at kickoff and ends at the next kick off. When Team A kicks off to Team B to start drive #4, we start our next sequence, which will end either with one team scoring or at the end of the half.
 
-Why model the outcome of sequences rather than individual drives? Individual plays have the potential to affect both team's chances of scoring, positively or negatively, and we want our model to directly capture this. If an offense turns the ball over at midfield, they are not only hurting their own chances of scoring, they are increasing the other team's chance of scoring. The value of a play in terms of expected points is function of how both team's probabilities are affected by the outcome.
+Why model the outcome of sequences rather than individual drives? Individual plays have the potential to affect both team's chances of scoring, positively or negatively, and we want our model to directly capture this. If an offense turns the ball over at midfield, they are not only hurting their own chances of scoring, they are increasing the other team's chance of scoring. The value of a play in terms of expected points is function of how both team's probabilities are affected by the result of the play.
 
 ## Defining Expected Points
 
@@ -108,7 +112,7 @@ How do we get the probabilities of each scoring event? We learn these from histo
 
 ## Next Scoring Event
 
-The outcome for our analysis is the **next_score_event**. Each play in a given sequence contributes to the eventual outcome of the sequence. Here we can see an example of one game and its drives:
+The outcome for our analysis is the **next scoring event**. Each play in a given sequence contributes to the eventual outcome of the sequence. Here we can see an example of one game and its drives:
 
 ```{r drives in one game}
 
@@ -144,9 +148,11 @@ prepared_pbp |>
 
 ```
 
-If we look at another sequence in the second half (drives 9 through), we can see there were multiple drives before a team was able to score in that sequence.
+If we look at another sequence in the second half, we can see there were multiple drives before a team was able to score in that sequence.
 
-Note that the next scoring event is always defined from the perspective of the offense.
+::: {.callout-note}
+The next scoring event is always defined from the perspective of the offense.
+:::
 
 ```{r plays from multiple drives}
 #| class: scroll
@@ -163,7 +169,9 @@ Our goal is to understand how individual plays contribute to a team's **expected
 
 For instance, in the first drive of the Texas A&M-Florida game in 2012, Texas A&M received the ball at their own 25 yard line to open the game.
 
-The simplest intuition of expected points is to ask, for teams starting at the 25 yard line at the beginning of a game, how many points do they typically go on to score? The answer is to look at all starting drives with 75 yards to go and see what the eventual next scoring event was for each of these plays - we take the average of all of the points that followed from this situation.
+The simplest intuition of expected points is to ask, for teams starting at the 25 yard line at the beginning of a game, how many points do they typically go on to score? 
+
+One way to answer this is to look at all starting drives with 75 yards to go and see what the eventual next scoring event was for each of these plays - we simply take the average of all of the points that followed from teams in this situation.
 
 ```{r}
 prepared_pbp |>
@@ -186,9 +194,9 @@ prepared_pbp |>
 
 ```
 
-In this case, this means teams with the ball at their own 25 to start the game generally obtained more points on the ensuing sequence than their opponents, so they have a slightly positive expected points.
+In this case, we find teams with the ball at their own 25 to start the game generally obtained more points on the ensuing sequence than their opponents, so they have a slightly positive expected points.
 
-But, this is also a function of the *down*. If we look at the expected points for a team in this situation in first down vs a team in this situation for fourth down, we should see a drop in their expected points - by the time you hit fourth down, if you haven't moved from the 25, your expected points drops into the negatives, as you will now be punting the ball back to your opponent and it becomes more probable that they score than you.
+But, expected points is also a function of the *down*. If we look at the expected points for a team in this situation in first down vs a team in this situation for fourth down, we should see a drop in their expected points - by the time you hit fourth down, if you haven't moved from the 25, your expected points drops into the negatives, as you will now be punting the ball back to your opponent and it becomes more probable that they score than you.
 
 ```{r}
 prepared_pbp |>

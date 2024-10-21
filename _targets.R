@@ -761,11 +761,6 @@ list(
       prepare_team_estimates()
   ),
   tar_target(
-    season_games_with_estimates,
-    season_game_info |>
-      prepare_games_for_prediction(estimates = season_team_estimates)
-  ),
-  tar_target(
     games_model,
     games_final_fit
   ),
@@ -786,7 +781,10 @@ list(
             ndraws = 4000,
             seed = 1999,
             newdata = 
-              season_games_with_estimates |>
+              season_game_info |>
+              prepare_games_for_prediction(estimates = season_team_estimates, 
+                                           season_week = .x) |>
+              add_season_week() |>
               filter(season_week == .x)
           )
       ) |>
