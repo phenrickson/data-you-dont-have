@@ -10,7 +10,7 @@ format:
     number-sections: false
 params:
     season: 2024
-    week: 10
+    week: 11
 ---
 
 ```{r}
@@ -63,12 +63,13 @@ join_team_info = function(data, teams = team_info) {
 current_scores =
   team_scores |>
   filter(season == params$season) |>
+  add_season_week() |>
   group_by(team) |>
-  arrange(season_week) |>
+  arrange(season, week) |>
+  group_by(team) |>
   mutate(diff = round(score - dplyr::lag(score, 1), 2)) |>
   ungroup() |>
-  filter(season_week == max(season_week)) |>
-  add_season_week() |>
+  filter(week == max(week)) |>
   arrange(desc(season_week), desc(score)) |>
   mutate(rank = rank(-score)) |>
   select(season, week, rank, team, everything()) |>
@@ -222,7 +223,7 @@ team_scores |>
 #| warning: false
 #| message: false
 
-plot_team_scores_by_conference = function(data, conference = 'Big Ten', lines = c(0)) {
+plot_team_scores_by_conference = function(data, conference = 'Big Ten', span = 0.5, lines = c(0)) {
   
   plot_team_lines = function(data, ylim = c(-30, 30)) {
     
@@ -232,7 +233,7 @@ plot_team_scores_by_conference = function(data, conference = 'Big Ten', lines = 
                  y=score,
                  color = team,
                  label = abbreviation))+
-      geom_line(stat = 'smooth', method = 'loess', formula = 'y ~ x')+
+      geom_line(stat = 'smooth', method = 'loess', formula = 'y ~ x', span = span)+
       cfbplotR::scale_color_cfb()+
       theme_cfb()+
       # coord_cartesian(ylim = ylim)+
@@ -476,7 +477,8 @@ The following table displays all FBS teams based on their estimated efficiency f
 team_category_estimates |>
   prepare_team_category_estimates() |>
   filter(season == params$season) |>
-  filter(season_week == max(season_week)) |>
+  add_season_week() |>
+  filter(week == max(week)) |>
   team_category_estimates_tbl() |>
   add_gt_formatting()
 
