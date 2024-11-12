@@ -1,14 +1,19 @@
 ---
-title: "Untitled"
-format: html
+title: "{{< meta params.season >}} CFB Team Report"
+subtitle: "{{< meta params.team >}}"
+editor: source
+format: 
+  html:
+    echo: false
+    warning: false
+    message: false
 params: 
-    team: Wisconsin
-    season: 2024
+  season: 2024
+  team: Wisconsin
 ---
 
-
 ```{r}
-
+#| include: false
 # packages
 library(targets)
 library(dplyr)
@@ -17,6 +22,7 @@ library(ggplot2)
 library(quarto)
 library(gt)
 library(gtExtras)
+library(patchwork)
 
 # src code
 tar_source("R")
@@ -24,186 +30,312 @@ tar_source("R")
 # team info
 team_info <- cfbfastR::cfbd_team_info(year = params$season)
 
-join_team_info = function(data, teams = team_info) {
-  
-  data |>
-    inner_join(
-      teams |>
-        adjust_team_names(cols = "school") |>
-        select(team = school,
-               conference,
-               abbreviation),
-      by = join_by(team)
-    )
-}
-
-
 # estimates
-tar_load(team_scores)
-tar_load(adjusted_efficiency_overall_ppa)
-tar_load(adjusted_efficiency_category_ppa)
+team_scores = tar_read("team_scores")
+team_category_estimates = tar_read("season_team_category_estimates")
 
+```
+
+
+```{r}
+#| include: false
+# functions
+my_facet_theme = function(size = 12, ...) {
   
-label_team = function(data, var, size = 3, nudge_x = 1.2) {
-  
-  ggrepel::geom_text_repel(
-    aes(label = {{var}}),
-    fontface = "bold",
-    size = size,
-    direction = "y",
-    nudge_x = nudge_x,
-    segment.alpha = .5,
-    segment.linetype = "dotted",
-    box.padding = .2,
-  segment.curvature = -0.1,
-  segment.ncp = 3,
-  segment.angle = 20,
-  segment.size = 0.5
-  )
+  theme(strip.background.y = element_blank(),
+        strip.text.y = element_text(colour = 'grey20', size =size),
+        ...)
 }
 
-plot_team_scores_by_conference = function(data, season = 2024, conference = 'Big Ten', span = 0.15, lines = c(0)) {
-  
-  plot_team_lines = function(data, ylim = c(-30, 30)) {
-    
-    data |>
-      add_season_week() |>
-      ggplot(aes(x=week,
-                 y=score,
-                 color = team,
-                 label = abbreviation))+
-      geom_line(stat = 'smooth', span = span, method = 'loess', formula = 'y ~ x')+
-      cfbplotR::scale_color_cfb()+
-      theme_cfb()+
-      # coord_cartesian(ylim = ylim)+
-      xlab("Season Week")+
-      ylab("Team Score")+
-      geom_hline(yintercept = lines, linetype = 'dashed')+
-      coord_cartesian(
-        #ylim = c(-33, 33),
-        xlim = c(-1, 20)
-      )
-    
-  }
-  
-  label_team = function(data, var, size = 3, nudge_x = 1.2) {
-    
-    ggrepel::geom_text_repel(
-      aes(label = {{var}}),
-      fontface = "bold",
-      size = size,
-      direction = "y",
-      nudge_x = nudge_x,
-      segment.alpha = .5,
-      segment.linetype = "dotted",
-      box.padding = .2,
-    segment.curvature = -0.1,
-    segment.ncp = 3,
-    segment.angle = 20,
-    segment.size = 0.5
-    )
-  }
+find_team_season_score = function(data) {
   
   data |>
-    inner_join(
-        tibble(season = season)
-    ) |>
-    join_team_info() |>
-    inner_join(
-      tibble(
-        conference = conference
-      ), by = join_by(conference)
-    ) |>
-    add_season_week() |>
     group_by(season, team) |>
-    mutate(start_label = case_when(week == min(week) ~ abbreviation),
-           end_label = case_when(week == max(week) ~ abbreviation)) |>
-    plot_team_lines()+
-    label_team(var = end_label, size = 3, nudge_x = 1.1)+
-    label_team(var = start_label, size = 2, nudge_x = -0.9)+
-    facet_wrap(season ~ conference)
-}
-
-```
-
-```{r}
-
-adjusted_efficiency_overall_ppa |>
-  filter(play_situation == "offense/defense") |>
-  add_overall_efficiency() |>
-  add_team_ranks() |>
-  plot_team_efficiency(teams = params$team)
-
-```
-
-
-```{r}
-
-adjusted_efficiency_category_ppa |>
-  add_overall_efficiency() |>
-  add_team_ranks(groups = c("season", "type", "metric", "play_category")) |>
-  filter(
-    type %in% c("offense", "defense"),
-    play_category %in% c("pass", "rush")
-  ) |>
-  plot_team_efficiency(teams = params$team) +
-  facet_grid(play_category ~ type)+
-  scale_x_discrete(breaks = scales::pretty_breaks(n=8))
-
-
-```
-
-
-```{r}
-
-team_scores |>
-  plot_team_scores(team = params$team, rankings = c(10, 25, 115))
-
-```
-
-
-```{r}
-
-team_scores |>
-    plot_team_scores_by_conference(
-        conference = c('Big Ten'),
-        season = c(2023),
-        span = 0.4
-    )
-
-```
-
-
-```{r}
-
-plot_top_team_scores = function(data, top_n = 25, span = 0.4, teams = team_info) {
-
-  data |>
-    pivot_longer(
-        cols = c("score", "offense", "defense", "special"),
-        names_to = c("type"),
-        values_to = c("estimate")
-    ) |>
-    add_team_ranks(groups = c("season", "season_type", "season_week", "type")) |>
-    filter(type %in% c("score")) |>
-    mutate(show_estimate = case_when(rank <= top_n ~ estimate)) |>
     add_season_week() |>
-    filter(week > 0) |>
-    join_team_info(teams = team_info) |>
-    mutate(start_label = case_when(week == min(week) ~ abbreviation), end_label = case_when(week == max(week) ~ abbreviation)) |>
-    ggplot(aes(x=week, y=show_estimate, group = team, color = team))+
-    geom_line(stat = 'smooth', span = span, method = 'loess', formula = 'y ~ x')+
-    cfbplotR::scale_color_cfb()+
-    theme_cfb()+
-    coord_cartesian(ylim = c(0, NA))+
-    label_team(var = start_label, size = 1.5, nudge_x = -1.5)+
-    label_team(var = end_label, size = 2.5, nudge_x = 1.5)+
-    facet_wrap(season ~.)
+    slice_max(week, n =1) |>
+    ungroup()
+  
 }
 
-team_scores |>
-  filter(season == 2023) |>
-  plot_top_team_scores(top_n = 25)
+normalize_estimate = function(var, scale = 100) {
+  
+  scaled = (var - min(var)) / (max(var) - min(var))
+  
+  scaled * scale
+  
+}
 
+plot_ranking = function(plot, alpha = 0.5, hjust = 1.4, ranking, groups = c("season", "season_week", "type", "metric")) {
+  
+  rank_data =
+    plot$data |>
+    add_team_ranks(groups = groups) |>
+    filter(rank %in% c(ranking)) |>
+    mutate(team = case_when(rank <= 75 ~ paste('top', rank),
+                            rank > 75 ~ paste('bottom', 135 - rank)))
+  
+  plot +
+    geom_line(
+      data =
+        rank_data,
+      aes(group = team),
+      linetype = 'dashed',
+      alpha = alpha
+    ) +
+    geom_text(
+      data =
+        rank_data |>
+        filter(season_week == min(season_week)),
+      aes(y = estimate,
+          label = team
+      ),
+      hjust = hjust,
+      size = 2
+    )+
+    coord_cartesian(clip = "off")
+  
+}
+
+plot_team_score_by_season = function(data, team, ranking = c(25), hjust = 1.4) {
+  
+  p = 
+    data |>
+    find_team_season_score() |>
+    select(season, season_type, season_week, team, overall = score) |>
+    pivot_longer(cols = c(overall),
+                 names_to = c("type"),
+                 values_to = c("estimate")) |>
+    add_team_ranks() |>
+    plot_team_efficiency(teams = team, title = F)+
+    ylab("")+
+    xlab("Season")+
+    my_facet_theme()+
+    ylab("")+
+    labs(title = paste("Team Rating by Season", team, sep = " - "),
+         subtitle = stringr::str_wrap(
+           paste("Estimates based on opponent adjusted team efficiency and predicted points per play. Distribution in grey shows all FBS teams. Highlighted line shows", paste0(team, "'s"), "rating among all FBS teams."), 120),
+         x = "Season",
+         y= "Rating")
+  
+  p |>
+    plot_ranking(ranking = ranking, hjust = hjust)
+}
+
+plot_team_estimates_by_season = function(data, team, ranking = 25, vjust = -0.25, hjust = 2.4) {
+  
+  p = 
+    data |>
+    group_by(season, team) |>
+    slice_max(season_week, n =1) |>
+    rename(overall = score) |>
+    pivot_longer(cols = c(offense, defense, special),
+                 names_to = c("type"),
+                 values_to = c("estimate")) |>
+    add_team_ranks() |>
+    mutate(type = factor(type, levels = c("offense", "defense", "special"))) |>
+    # filter(type != 'special') |>
+    plot_team_efficiency(team = team, vjust = vjust)+
+    ylab("Net Points per Play")+
+    xlab("Season")+
+    my_facet_theme()
+  
+  p |>
+    plot_ranking(ranking = ranking, hjust = hjust)
+}
+
+plot_team_category_by_season = function(data, team, vjust = -0.25) {
+  
+  p = 
+    data |>
+    filter(play_category != 'special') |>
+    select(season, season_week, week_date, week, play_category, metric, type, team, estimate) |>
+    group_by(season, team, play_category, type) |>
+    slice_max(season_week, n = 1) |>
+    ungroup() |>
+    add_season_week() |>
+    add_team_ranks(groups = c("season", "season_week", "play_category", "metric", "type")) |>
+    plot_team_efficiency(x = 'season', teams = team, point = T, label = T, title = T, vjust = vjust)+
+    ggh4x::facet_nested(type + play_category ~.) +
+    my_facet_theme()+
+    labs(title = paste("Team Efficiency by Play Type", team, sep = " - "),
+         subtitle = stringr::str_wrap(
+           paste("Team rating indicates expected margin when playing an average FBS opponent. Estimates based on opponent adjusted team efficiency and predicted points per play. Distribution in grey shows all FBS teams. Highlighted line shows", paste0(team, "'s"), "rating among all FBS teams."), 120),
+         x = 'Season',
+         y = 'Net Points per Play'
+    )
+  
+  p |>
+    plot_ranking(groups = c("season", "season_week", "play_category", "metric", "type"),
+                 ranking = 25,
+                 hjust = 2.4)
+  
+} 
+
+plot_team_by_season = function(data, team, hjust = 2.5, heights = c(1, 2.5), ...) {
+  
+  a = 
+    team_scores |>
+    plot_team_score_by_season(team = team, hjust = hjust)+
+    labs(x = NULL,
+         title = paste("Team Efficiency by Season", team, sep = " - ")
+    )
+  
+  b = 
+    team_scores |>
+    plot_team_estimates_by_season(team = team, hjust = hjust, ...)+
+    labs(title = NULL,
+         subtitle = NULL)
+  
+  a / b +
+    plot_layout(heights = heights)
+}
+
+add_gt_formatting = function(tab, table.font.size = 12) {
+  
+  tab |>
+    gt::tab_options(table.font.size = table.font.size) |>
+    gt::opt_row_striping(row_striping = F)
+}
 
 ```
+
+# About
+
+The following report displays historical estimates of a college football team's efficiency. These estimates are based on opponent adjusted predicted points per play.
+
+# Estimates by Season
+
+How has a team performed year over year? I estimate an overall rating for each team based on plays that occurred within a given season. A team's rating refers to their estimated margin of victory against an average FBS opponent. 
+
+```{r}
+#| fig-width: 10
+team_scores |>
+  plot_team_score_by_season(team = params$team, ranking = c(10, 25, 50))
+```
+
+This rating is a function of a team's (opponent adjusted) offensive, defensive, and special teams efficiency.
+
+```{r}
+#| fig-width: 10
+team_scores |>
+  plot_team_estimates_by_season(team = params$team)
+
+```
+
+I additionally estimate a team's performance when passing/rushing on offense, or defending the pass/rush on defense. 
+
+```{r}
+#| fig-width: 10
+team_category_estimates |>
+  plot_team_category_by_season(team = params$team)
+
+```
+
+The following (interactive) tables shows the team's overall, offensive, and defensive estimates along with their overall rank at the end of each season.
+
+::: panel-tabset
+
+## Overall Efficiency
+
+```{r}
+
+team_scores |>
+  find_team_season_score() |>
+  team_efficiency_overall_tbl(team = params$team, overall_domain = c(-30, 40), est_domain = c(-.55, .65)) |>
+  gt::opt_interactive(page_size_default = 15) |>
+  add_gt_formatting()
+
+```
+
+
+## Pass/Rush Efficiency
+
+```{r}
+
+team_category_estimates |> 
+  find_team_season_score() |>
+  filter(play_category != 'special') |>
+  team_efficiency_category_tbl(team = params$team, domain = c(-.75, .85)) |>
+  gt::opt_interactive(page_size_default = 15) |>
+  add_gt_formatting()
+
+```
+
+:::
+
+# Estimates by Week
+
+Weekly estimates for the selected team over the last 
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+team_scores |>
+  plot_team_scores(team = params$team, rankings = c(25)) +
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)]})+
+  xlab("Season Week")+
+  my_facet_theme()
+
+```
+
+Estimated efficiency by week in pass/rush situations.
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+team_category_estimates |>
+  plot_team_efficiency_by_category_and_week(team = params$team)+
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)]})+
+  xlab("Season Week")+
+  my_facet_theme()
+
+```
+
+::: panel-tabset
+
+## Efficiency Overall
+
+Team rating and offensive/defensive efficiency by week of the current season.
+
+```{r}
+
+team_scores |>
+  filter(season == params$season) |>
+  team_efficiency_overall_tbl(team = 'Tennessee',
+                              groups = c("season", "season_week", "play_category", "metric", "type"), 
+                              overall_domain = c(-30, 40), 
+                              est_domain = c(-.55, .65)) |>
+  gt::opt_interactive(page_size_default = 15) |>
+  add_gt_formatting() |>
+  gt::cols_unhide("week") |>
+  gt::cols_align(columns = "week", align = c("center")) |>
+  gt::cols_width(
+    season ~ px(75),
+    week ~ px(75)
+  )
+
+```
+
+## Pass/Rush Efficiency
+
+```{r}
+
+team_category_estimates |> 
+  filter(season == params$season) |>
+  add_season_week() |>
+  filter(play_category != 'special') |>
+  team_efficiency_category_tbl(team = 'Texas', 
+                               groups = c("season", "season_week", "play_category", "metric", "type"), 
+                               domain = c(-.75, .85)) |>
+  gt::opt_interactive(page_size_default = 25) |>
+  add_gt_formatting() |>
+  gt::cols_unhide("week") |>
+  gt::cols_align(columns = "week", align = c("center")) |>
+  gt::cols_width(
+    season ~ px(75),
+    week ~ px(75)
+  )
+```
+
