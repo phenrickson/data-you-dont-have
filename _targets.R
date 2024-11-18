@@ -104,24 +104,6 @@ list(
     ) |>
       select(season, everything())
   ),
-  # talent
-  # tar_target(
-  #   cfbd_team_talent_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_team_talent(year = .x)
-  #   ) |>
-  #     as_tibble()
-  # ),
-  # # team recruiting,
-  # tar_target(
-  #   cfbd_recruiting_team,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_recruiting_team(year = .x)
-  #   ) |>
-  #     as_tibble()
-  # ),
   # games for selected seasons
   tar_target(
     cfbd_game_info_tbl,
@@ -134,25 +116,6 @@ list(
     ) |>
       as_tibble()
   ),
-  # # betting lines
-  # tar_target(
-  #   cfbd_betting_lines_tbl,
-  #   {
-  #     tmp <- expand_grid(
-  #       season = seasons,
-  #       type = c("regular", "postseason")
-  #     )
-  
-  #     map2_df(
-  #       .x = tmp$season,
-  #       .y = tmp$type,
-  #       ~ cfbd_betting_lines(
-  #         year = .x,
-  #         season_type = .y
-  #       )
-  #     )
-  #   }
-  # ),
   # # rankings
   tar_target(
     cfbd_game_rankings_tbl,
@@ -171,78 +134,12 @@ list(
       )
     }
   ),
-  # # draft picks
-  # tar_target(
-  #   cfbd_draft_picks,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_draft_picks(year = .x)
-  #   ) |>
-  #     as_tibble()
-  # ),
   # play types
   tar_target(
     cfbd_play_types_tbl,
     cfbd_play_types() |>
       as_tibble()
   ),
-  # # coaches
-  # tar_target(
-  #   cfbd_coaches_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_coaches(year = .x) |>
-  #       add_season(year = .x)
-  #   )
-  # ),
-  # # rosters
-  # tar_target(
-  #   cfbd_team_roster_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_team_roster(year = .x) |>
-  #       add_season(year = .x)
-  #   )
-  # ),
-  # # recruiting_player
-  # tar_target(
-  #   cfbd_recruiting_player_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_recruiting_player(year = .x) |>
-  #       add_season(year = .x)
-  #   )
-  # ),
-  # # recruiting position
-  # tar_target(
-  #   cfbd_recruiting_position_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_recruiting_position(
-  #       start_year = .x,
-  #       end_year = .x
-  #     ) |>
-  #       add_season(year = .x)
-  #   )
-  # ),
-  # # player usage
-  # tar_target(
-  #   cfbd_player_usage_tbl,
-  #   map_df(
-  #     seasons[seasons > 2012],
-  #     ~ cfbd_player_usage(year = .x) |>
-  #       as_tibble()
-  #   )
-  # ),
-  # # player returning
-  # tar_target(
-  #   cfbd_player_returning_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ cfbd_player_returning(year = .x) |>
-  #       as_tibble()
-  #   )
-  # ),
   # drives
   tar_target(
     cfbd_drives_tbl,
@@ -255,44 +152,6 @@ list(
         add_season(year = .x)
     )
   ),
-  ### now get espn data
-  # calendar
-  # tar_target(
-  #   espn_cfb_calendar_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ espn_cfb_calendar(year = .x) |>
-  #       as_tibble()
-  #   )
-  # ),
-  # schedule
-  # tar_target(
-  #   espn_cfb_schedule_tbl,
-  #   map_df(
-  #     seasons,
-  #     ~ espn_cfb_schedule(year = .x) |>
-  #       as_tibble()
-  #   )
-  # ),
-  # espn games
-  # tar_target(
-  #   espn_cfb_game_ids,
-  #   espn_cfb_schedule_tbl |>
-  #     # seasons with pbp data
-  #     filter(season > 2002) |>
-  #     filter(play_by_play_available == T) |>
-  #     distinct(game_id) |>
-  #     pull()
-  # ),
-  # espn fpi
-  # tar_target(
-  #   espn_ratings_fpi_tbl,
-  #   map_df(
-  #     seasons[seasons > 2004],
-  #     ~ espn_ratings_fpi(year = .x) |>
-  #       as_tibble()
-  #   )
-  # ),
   # get historical conferences and divisions
   # divisions
   tar_target(
@@ -324,13 +183,6 @@ list(
       tar_group(),
     iteration = "group"
   ),
-  # # get cfbd plays for each branch
-  # tar_target(
-  #   cfbd_plays_tbl,
-  #   get_cfbd_plays(cfbd_season_week_games),
-  #   pattern = map(cfbd_season_week_games),
-  #   error = "null"
-  # ),
   # get cleaned cfbd pbp (cfbfastR) for each branch
   tar_target(
     cfbd_pbp_data_tbl,
@@ -357,56 +209,6 @@ list(
       prepare_pbp() |>
       add_score_events()
   ),
-  # # prepare games for use in elo functions
-  # tar_target(
-  #   prepared_games,
-  #   cfbd_games_tbl |>
-  #     prepare_games()
-  # ),
-  # # elo parameters
-  # tar_target(
-  #   elo_params,
-  #   expand.grid(
-  #     reversion = c(0, 0.1, 0.2),
-  #     k = c(25, 35, 45),
-  #     v = 400,
-  #     home_field_advantage = c(25, 75, 100)
-  #   )
-  # ),
-  # tar_target(
-  #   elo_tuning_results,
-  #   prepared_games |>
-  #     tune_elo_ratings(params = elo_params),
-  #   pattern = map(elo_params),
-  #   iteration = "vector",
-  #   cue = tar_cue(mode = "never")
-  # ),
-  # tar_target(
-  #   elo_metrics,
-  #   elo_tuning_results |>
-  #     select(game_outcomes, settings) |>
-  #     # prioritize games since 2000
-  #     mutate(game_outcomes = map(game_outcomes, ~ .x |> filter(season >= 2000))) |>
-  #     assess_elo_ratings()
-  # ),
-  # tar_target(
-  #   elo_best_params,
-  #   elo_metrics |>
-  #     select(overall) |>
-  #     unnest() |>
-  #     select_elo_params(),
-  #   packages = c("desirability2")
-  # ),
-  # tar_target(
-  #   elo_games,
-  #   prepared_games |>
-  #     tune_elo_ratings(params = elo_best_params)
-  # ),
-  # tar_target(
-  #   elo_teams,
-  #   elo_games |>
-  #     pluck("team_outcomes", 1)
-  # ),
   # expected points modeling
   tar_target(
     class_metrics,
@@ -529,22 +331,11 @@ list(
     pbp_efficiency |>
       calculate_efficiency(groups = c("season", "type", "play_category", "team"))
   ),
-  # tar_target(
-  #   adjusted_efficiency_overall_epa,
-  #   pbp_efficiency |>
-  #     estimate_efficiency_overall(metric = "expected_points_added")
-  # ),
   tar_target(
     adjusted_efficiency_overall_ppa,
     pbp_efficiency |>
       estimate_efficiency_overall(metric = "predicted_points_added")
   ),
-  # # pass/rush
-  # tar_target(
-  #   adjusted_efficiency_category_epa,
-  #   pbp_efficiency |>
-  #     estimate_efficiency_category(metric = "expected_points_added")
-  # ),
   tar_target(
     adjusted_efficiency_category_ppa,
     pbp_efficiency |>
@@ -642,11 +433,6 @@ list(
         split_games$data
       )
   ),
-  # # quarto
-  # tar_quarto(
-  #   reports,
-  #   quiet = F
-  # )
   tar_target(
     season_game_info,
     cfbfastR::cfbd_game_info(year = current_season) |>
@@ -796,17 +582,4 @@ list(
     games_draws |>
       summarize_simulations()
   )
-  # tar_target(
-  #   games_predictions,
-  #   games_sims |>
-  #   join_team_divisions(games = season_game_info) |>
-  #   prepare_fcs_teams() |>
-  #   left_join(
-  #     season_game_info |>
-  #     select(game_id, start_date, completed)
-  #   ) |>
-  #   add_team_scores(
-  #     teams_data = team_scores
-  #   )
-  # )
 )
