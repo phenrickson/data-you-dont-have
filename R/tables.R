@@ -255,11 +255,11 @@ efficiency_category_tbl = function(data, domain = c(-.75, .75)) {
     #   columns = contains("estimate")
     # ) |>
     gt::tab_spanner(
-      label = "offense efficiency",
+      label = "offense",
       columns = contains("offense")
     ) |>
     gt::tab_spanner(
-      label = "defense efficiency",
+      label = "defense",
       columns = contains("defense")
     ) |>
     gt::fmt_number(

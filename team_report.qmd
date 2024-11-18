@@ -1,12 +1,14 @@
 ---
-title: "{{< meta params.season >}} CFB Team Report"
-subtitle: "{{< meta params.team >}}"
+title: "CFB Team Ratings"
+subtitle: "**`r params$team`** **`r params$season`**"
 editor: source
 format: 
   html:
     echo: false
     warning: false
     message: false
+    fig-dpi: 300
+    self-contained: true
 params: 
   season: 2024
   team: Wisconsin
@@ -190,52 +192,71 @@ plot_team_by_season = function(data, team, hjust = 2.5, heights = c(1, 2.5), ...
     plot_layout(heights = heights)
 }
 
-add_gt_formatting = function(tab, table.font.size = 12) {
+add_gt_formatting = function(tab, table.font.size = 14) {
   
   tab |>
     gt::tab_options(table.font.size = table.font.size) |>
     gt::opt_row_striping(row_striping = F)
 }
 
+set_gt_width = function(tab) {
+  
+  tab |>
+    gt::cols_width(
+      season ~ px(75),
+      team ~ px(100)
+    )
+}
+
 ```
 
 # About
 
-The following report displays historical estimates of a college football team's efficiency. These estimates are based on opponent adjusted predicted points per play.
+This report displays estimates for **`r params$team`**'s  college football team from 2011 to present. These estimates are based on play by data using an (opponent adjusted) predicted points per play model and a game prediction model.
 
-# Estimates by Season
+# Team Rating by Season
 
-How has a team performed year over year? I estimate an overall rating for each team based on plays that occurred within a given season. A team's rating refers to their estimated margin of victory against an average FBS opponent. 
+How has **`r params$team`** performed since 2011?
+
+I estimate an overall rating for each team based on play by play data from each season. A team's rating indicates their estimated margin of victory against an average FBS opponent. 
 
 ```{r}
-#| fig-width: 10
+##| fig-width: 10
 team_scores |>
   plot_team_score_by_season(team = params$team, ranking = c(10, 25, 50))
 ```
 
-This rating is a function of a team's (opponent adjusted) offensive, defensive, and special teams efficiency.
+A team's overall rating is a function of their offensive, defensive, and special teams ratings, which I estimate for each team in each season.  These ratings are based on expected points - on average, how many points did the team typically generate per play while on offense or defense? 
+
+I additionally estimate a team's performance when passing/rushing on offense, or defending the pass/rush on defense.
+
+::: panel-tabset
+
+## Overall Efficiency
 
 ```{r}
-#| fig-width: 10
+# #| fig-width: 10
 team_scores |>
   plot_team_estimates_by_season(team = params$team)
 
 ```
 
-I additionally estimate a team's performance when passing/rushing on offense, or defending the pass/rush on defense. 
+
+## Pass/Rush Efficiency
 
 ```{r}
-#| fig-width: 10
 team_category_estimates |>
   plot_team_category_by_season(team = params$team)
 
 ```
 
-The following (interactive) tables shows the team's overall, offensive, and defensive estimates along with their overall rank at the end of each season.
+:::
+
+The following (interactive) tables show my estimates at the season level for the selected team, along with their ranking in each category in parentheses.
 
 ::: panel-tabset
 
-## Overall Efficiency
+## Overall Efficiency by Season
 
 ```{r}
 
@@ -243,12 +264,17 @@ team_scores |>
   find_team_season_score() |>
   team_efficiency_overall_tbl(team = params$team, overall_domain = c(-30, 40), est_domain = c(-.55, .65)) |>
   gt::opt_interactive(page_size_default = 15) |>
-  add_gt_formatting()
+  add_gt_formatting() |>
+  gt::tab_spanner(
+    columns = c("estimate_offense", "estimate_defense"),
+    label = "net points per play"
+  ) |>
+  set_gt_width()
 
 ```
 
 
-## Pass/Rush Efficiency
+## Pass/Rush Efficiency by Season
 
 ```{r}
 
@@ -257,20 +283,96 @@ team_category_estimates |>
   filter(play_category != 'special') |>
   team_efficiency_category_tbl(team = params$team, domain = c(-.75, .85)) |>
   gt::opt_interactive(page_size_default = 15) |>
-  add_gt_formatting()
+  add_gt_formatting() |>
+  set_gt_width()
+```
+
+:::
+
+# Team Rating by Week
+
+How has a team performed over the course of a season?
+
+I estimate every team's performance after each full week of every season using play by play data from that week and previous weeks, weighting recent plays more heavily than older plays. The resulting estimates are at the weekly level can be used to monitor a team's efficiency during a season.
+
+As before, I estimate an **overall rating** for each team, indicating their estimated margin of victory against an average FBS opponent.
+
+```{r}
+
+plot_team_score_by_week = function(data, team, ranking = c(10, 25, 50)) {
+  
+  p = 
+    data |>
+    rename(overall = score) |>
+    pivot_longer(
+      cols = c(overall, offense, defense, special),
+      names_to = c("type"),
+      values_to = c("estimate")
+    ) |>
+    filter(type == 'overall') |>
+    add_season_week() |>
+    add_team_ranks(groups = c("season", "week", "type", "metric")) |>
+    mutate(type = factor(type, levels = c("overall", "offense", "defense", "special"))) |>
+    plot_team_efficiency(x = 'week', teams = team, label = F, point = F, line = T)+
+    facet_grid(type ~ season, scales = "free_y")+
+    scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)]})+
+    xlab("Season Week")+
+    my_facet_theme()
+  
+  p |>
+    plot_ranking(ranking = ranking)+
+    ylab("Rating")
+  
+}
+
+```
+
+::: panel-tabset
+
+## Current Season
+
+```{r}
+#| message: false
+#| warning: false
+team_scores |>
+  filter(season == params$season) |>
+  plot_team_score_by_week(team = params$team)+
+  coord_cartesian(xlim = c(0, 20))+
+  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE, FALSE, FALSE, FALSE)]})
+
+```
+
+## Last 5 Seasons
+
+```{r}
+#| message: false
+#| warning: false
+team_scores |>
+  filter(season >= (params$season-6)) |>
+  plot_team_score_by_week(team = params$team)
+
+```
+
+
+## All Seasons
+
+```{r}
+#| message: false
+#| warning: false
+team_scores |>
+  plot_team_score_by_week(team = params$team)
 
 ```
 
 :::
 
-# Estimates by Week
+::: panel-tabset
 
-Weekly estimates for the selected team over the last 
+## Overall Efficiency by Week
 
 ```{r}
 #| message: false
 #| warning: false
-#| fig-width: 10
 team_scores |>
   plot_team_scores(team = params$team, rankings = c(25)) +
   scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)]})+
@@ -279,12 +381,11 @@ team_scores |>
 
 ```
 
-Estimated efficiency by week in pass/rush situations.
+## Pass/Rush Efficiency by Week
 
 ```{r}
 #| message: false
 #| warning: false
-#| fig-width: 10
 team_category_estimates |>
   plot_team_efficiency_by_category_and_week(team = params$team)+
   scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)]})+
@@ -293,17 +394,19 @@ team_category_estimates |>
 
 ```
 
+:::
+
+The following tables show my estimates at the weekly level for the selected team from the current season, along with their ranking in each category in parentheses.
+
 ::: panel-tabset
 
-## Efficiency Overall
-
-Team rating and offensive/defensive efficiency by week of the current season.
+## Team Efficiency `r params$season`
 
 ```{r}
 
 team_scores |>
   filter(season == params$season) |>
-  team_efficiency_overall_tbl(team = 'Tennessee',
+  team_efficiency_overall_tbl(team = params$team,
                               groups = c("season", "season_week", "play_category", "metric", "type"), 
                               overall_domain = c(-30, 40), 
                               est_domain = c(-.55, .65)) |>
@@ -313,12 +416,13 @@ team_scores |>
   gt::cols_align(columns = "week", align = c("center")) |>
   gt::cols_width(
     season ~ px(75),
-    week ~ px(75)
-  )
+    week ~ px(75),
+  ) |>
+  set_gt_width()
 
 ```
 
-## Pass/Rush Efficiency
+## Pass/Rush Efficiency `r params$season`
 
 ```{r}
 
@@ -326,7 +430,7 @@ team_category_estimates |>
   filter(season == params$season) |>
   add_season_week() |>
   filter(play_category != 'special') |>
-  team_efficiency_category_tbl(team = 'Texas', 
+  team_efficiency_category_tbl(team = params$team,
                                groups = c("season", "season_week", "play_category", "metric", "type"), 
                                domain = c(-.75, .85)) |>
   gt::opt_interactive(page_size_default = 25) |>
@@ -336,6 +440,8 @@ team_category_estimates |>
   gt::cols_width(
     season ~ px(75),
     week ~ px(75)
-  )
+  ) |>
+  set_gt_width()
 ```
 
+:::
