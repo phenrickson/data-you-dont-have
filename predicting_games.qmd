@@ -572,6 +572,7 @@ The following table displays predictions for all upcoming games based on the res
 game_predictions |>
   prepare_game_predictions() |>
   filter(is.na(actual)) |>
+  filter(week >= params$week) |>
   group_by(week) |>
   arrange(desc(week), desc(game_interest)) |>
   ungroup() |>
