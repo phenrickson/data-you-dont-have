@@ -44,7 +44,7 @@ sims <- tar_read("games_sims")
 #| message: false
 # request game info from collegefootballdata
 game_info <-
-  cfbfastR::cfbd_game_info(params$season, season_type = "both'") |>
+  cfbfastR::cfbd_game_info(params$season, season_type = "both") |>
   as_tibble() |>
   adjust_team_names()
 

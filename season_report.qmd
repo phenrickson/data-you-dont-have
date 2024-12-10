@@ -10,7 +10,7 @@ format:
     number-sections: false
 params:
     season: 2024
-    week: 15
+    week: 16
 ---
 
 ```{r}
