@@ -10,7 +10,7 @@ format:
     number-sections: false
 params:
     season: 2024
-    week: 15
+    week: 16
 ---
 
 ```{r}
@@ -44,7 +44,7 @@ sims <- tar_read("games_sims")
 #| message: false
 # request game info from collegefootballdata
 game_info <-
-  cfbfastR::cfbd_game_info(params$season) |>
+  cfbfastR::cfbd_game_info(params$season, season_type = "both") |>
   as_tibble() |>
   adjust_team_names()
 
@@ -195,20 +195,21 @@ spread_predictions_tbl = function(data) {
     )
 }
 
-plot_vs_betting_lines = function(data) {
+plot_vs_betting_lines = function(data, lim = 60) {
 
   data |>
     ggplot(aes(x = -pred_margin, y = spread, label = paste(home_team, away_team, sep = " vs "))) +
-    geom_point() +
+    geom_point(alpha = 0.5) +
     geom_text(vjust = -1, size = 1.5, check_overlap = T) +
     geom_abline() +
     theme_cfb() +
     xlab("Estimated Spread") +
     ylab("Vegas Spread") +
     ggpubr::stat_cor(aes(label = ..r.label..)) +
-    facet_wrap(paste(season, paste("Week", week)) ~ .)+
-    coord_cartesian(xlim = c(-50, 50),
-                    ylim = c(-50, 50))
+    facet_wrap(week ~ .) +
+    #facet_wrap(paste(season, paste("Week", week)) ~ .)+
+    coord_cartesian(xlim = c(-lim, lim),
+                    ylim = c(-lim, lim))
 }
 
 betting_lines_tbl = function(data) {
@@ -289,7 +290,6 @@ How do these predictions compare to betting lines? I compare my predicted spread
 #| fig-width: 7.5
 game_predictions_and_betting_lines |>
   filter(provider == 'ESPN Bet') |>
-  filter(week == params$week) |>
   plot_vs_betting_lines()+
   labs(y = 'ESPN Bet Spread')
 
