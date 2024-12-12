@@ -1,8 +1,9 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|d0e6de836bcbe767|||||||||||||||
+.Random.seed|object|bdd115cde70b7569|||||||||||||||
 add_correct|function|eb96e0b644ab16b8|||||||||||||||
 add_elo_predictions|function|e3eb35fb1b7ad6e4|||||||||||||||
 add_expected_points|function|0bf3484101e66081|||||||||||||||
+add_game_info|function|e06fbf6dda24b741|||||||||||||||
 add_game_outcomes|function|df16ecb5a0817171|||||||||||||||
 add_game_weeks|function|8b68e4b6933285d9|||||||||||||||
 add_game_weights|function|dec8a4b3f3fbb815|||||||||||||||
@@ -16,6 +17,7 @@ add_penalty_plays|function|e5c5b6c3a9735107|||||||||||||||
 add_play_category|function|d2bcd98aba23d945|||||||||||||||
 add_play_time|function|a3e05dadad3a523d|||||||||||||||
 add_play_types|function|689c5df7e2b7db45|||||||||||||||
+add_playoff_game_number|function|863de2f6779b6953|||||||||||||||
 add_punt_plays|function|e1ee59461edb44be|||||||||||||||
 add_rush_plays|function|10c474e5e2480d59|||||||||||||||
 add_sack_plays|function|3e15d3167620366e|||||||||||||||
@@ -25,6 +27,7 @@ add_scoring_plays|function|22fac6df9a994def|||||||||||||||
 add_season|function|53eacacae62d6689|||||||||||||||
 add_season_week|function|1d7b8254f317131d|||||||||||||||
 add_spread_features|function|228372fa985f4722|||||||||||||||
+add_team_estimates|function|f411e19e2fcfa3c2|||||||||||||||
 add_team_ranks|function|43d7760ce549c861|||||||||||||||
 add_team_scores|function|3d9b78c6e4a0caca|||||||||||||||
 add_turnover_plays|function|556050e33166c889|||||||||||||||
@@ -35,6 +38,7 @@ adjusted_efficiency_overall_epa|stem|059962fb76b2579a|88a00b3d96e3efcd|f74ff1662
 adjusted_efficiency_overall_ppa|stem|5b39a09f6b806c68|d914ef1134aee4a1|f74ff16628ae478c|-1546851752|bucket=cfb_models*key=data/objects/adjusted_efficiency_overall_ppa*version=1725823965687561|t19974.8144148481s||68463|qs|gcp|vector|||279.271|There was 1 warning in mutate.ℹ In argument estimated  mapdata, estimate_efficiency.x, metric   metric.Caused by warning Using an external vector in selections was deprecated in tidyselect 1.1.0.ℹ Please use all_of or any_of instead.   Was  data  selectoutcome   Now  data  selectall_ofoutcomeSee httpstidyselect.rlib.orgreferencefaqexternalvector.html.|
 assess_elo_ratings|function|18898af6c0daca58|||||||||||||||
 assess_games|function|73a8ecc7a998e0a9|||||||||||||||
+betting_lines_tbl|function|5aab09479deb48b0|||||||||||||||
 build_efficiency_recipe|function|b3ed6aa34e30d955|||||||||||||||
 build_efficiency_wflow|function|23cb7b3efd0365d1|||||||||||||||
 build_game_wflow|function|87dff69aed1683c8|||||||||||||||
@@ -852,7 +856,13 @@ clean_plays_func|function|4aabe602e28ec9dc|||||||||||||||
 clean_timeouts|function|ea6843e418eee0a0|||||||||||||||
 clean_yards|function|bdc86fcb12ff0cac|||||||||||||||
 combined|object|874dd1d8ba164815|||||||||||||||
+create_championship|function|f5b450790adf42a7|||||||||||||||
+create_initial_matchups|function|925b8034ce6584e5|||||||||||||||
+create_quarterfinal|function|bd1e2f1b88e61f15|||||||||||||||
+create_seeds|function|1c32b733eabc2ce6|||||||||||||||
+create_semifinal|function|69d07add3feb3e02|||||||||||||||
 current_season|object|1f9b22175ab58c3c|||||||||||||||
+current_team_estimates|stem|f3e364bf9976cb1e|20435349bbdf7716|5a00b2cc63602f7c|-592359759|bucket=cfb_models*key=data/objects/current_team_estimates*version=1734028359056286|t20069.7726712055s||5203|qs|gcp|vector|||0.023||
 defense_score_text|function|d1140ba21ee17dc9|||||||||||||||
 dummy_teams|function|e54bffc1e109eeeb|||||||||||||||
 dynamic|object|964437912578b57e|||||||||||||||
@@ -1459,6 +1469,7 @@ get_new_elos|function|07d8a0af0f015729|||||||||||||||
 get_season_weeks|function|05772ea6abe55bfb|||||||||||||||
 gt_correct_color|function|c9a05fe5844e2596|||||||||||||||
 gt_est_color|function|b60871c474ffd160|||||||||||||||
+gt_playoff_probs|function|c48dcc7798ccae87|||||||||||||||
 gt_rank_color|function|ca4429708f7f0e1c|||||||||||||||
 gt_tbl|function|b573d3595e93ede7|||||||||||||||
 harmonic_mean|function|009460d26cc5a6d7|||||||||||||||
@@ -1471,7 +1482,10 @@ join_team_estimates|function|dcf5c9effe8b25f1|||||||||||||||
 join_team_scores|function|b42aeacccdc962a5|||||||||||||||
 join_team_variables|function|904d52593f4c55ed|||||||||||||||
 kickoff_text|function|53430ea8e5460a2a|||||||||||||||
+load_betting_lines|function|511524801edf6ca3|||||||||||||||
+load_games|function|9460f24cdb5c3c65|||||||||||||||
 longer_games|function|77c6232882bcefa8|||||||||||||||
+longer_playoffs|function|a3b1243a02f37801|||||||||||||||
 make_time_features_func|function|83d36c83c311ad7c|||||||||||||||
 mapped|object|932abaa8b3157d37|||||||||||||||
 model_spread|function|f4abe1371e0ad262|||||||||||||||
@@ -1498,10 +1512,14 @@ penalty_text|function|93229a4eddcd7124|||||||||||||||
 pivot_estimates|function|066a47439309bca4|||||||||||||||
 pivot_games_to_teams|function|a10cf1da1d27c7f2|||||||||||||||
 pivot_pbp|function|12a0041efb9c7ee0|||||||||||||||
+playoff_sims|stem|f3c18cb07bcbf2da|21d31b3f04666490|777dd71c0a56c31e|-837456272|bucket=cfb_models*key=data/objects/playoff_sims*version=1734030877401114|t20069.8018165758s||449590|qs|gcp|vector|||660.657||
+playoff_teams|stem|a3abaac49da2383d|b60419a1635ecb26|2c530c1562a7fbd1|336452415|bucket=cfb_models*key=data/objects/playoff_teams*version=1734028357062099|t20069.7726486484s||134|qs|gcp|vector|||2.791||
 plays_points_tbl|function|40e35081dab2603c|||||||||||||||
+plot_bracket|function|f74915ecfc95448f|||||||||||||||
 plot_efficiency_all_teams|function|4aceb418230fc1c0|||||||||||||||
 plot_efficiency_by_team|function|d560d0b22b3722d0|||||||||||||||
 plot_game_predictions|function|2e53784b1c490ea7|||||||||||||||
+plot_matchups|function|ac60c999576115ae|||||||||||||||
 plot_pbp_calibration|function|da626d3788c6fb69|||||||||||||||
 plot_ranking|function|37492aa6fbd80950|||||||||||||||
 plot_split_plan|function|69c5a731895efa4e|||||||||||||||
@@ -1509,6 +1527,8 @@ plot_team_efficiency|function|cd9c3a7e0694480e|||||||||||||||
 plot_team_efficiency_by_category_and_week|function|f6de6ae32a9bd3ec|||||||||||||||
 plot_team_efficiency_by_week|function|2e58bfa16ac6cf80|||||||||||||||
 plot_team_scores|function|be9003b58a7b1ea6|||||||||||||||
+plot_vs_betting_lines|function|bba4663f6a8a2c3a|||||||||||||||
+postseason_game_info|stem|85ea2f6246f325c5|bf352fded85c9a25|23420bcdbe6c2510|1731840765|bucket=cfb_models*key=data/objects/postseason_game_info*version=1734028387694563|t20069.7730032876s||2531|qs|gcp|vector|||2.712||
 predict_pbp|function|89fc673f4a23390b|||||||||||||||
 prepare_drives|function|0cd66ed59e1e3d78|||||||||||||||
 prepare_efficiency|function|2621b3baaa00e971|||||||||||||||
@@ -1518,9 +1538,11 @@ prepare_game_info|function|6b17c2026c5a0ae6|||||||||||||||
 prepare_game_predictions|function|28671bf4f997dd86|||||||||||||||
 prepare_game_weeks|function|b92fdc8c20a8a9fa|||||||||||||||
 prepare_games|function|49779747191ba766|||||||||||||||
+prepare_games_for_model|function|2d585a6b67677fdc|||||||||||||||
 prepare_games_for_prediction|function|f74dba838eae42d2|||||||||||||||
 prepare_pbp|function|1f9c59e8ef4a3dcd|||||||||||||||
 prepare_plays|function|1e408c68a84dcc9e|||||||||||||||
+prepare_spread_predictions|function|35efeeb31b8bc214|||||||||||||||
 prepare_team_category_estimates|function|a6d6577391ab10f5|||||||||||||||
 prepare_team_estimates|function|77dd7d71ce347d43|||||||||||||||
 prepare_weekly_efficiency|function|77e29d21ec91bd55|||||||||||||||
@@ -1721,14 +1743,21 @@ seasons|object|a3a5673ed49c208e|||||||||||||||
 select_elo_params|function|6903f9afe9c00a9f|||||||||||||||
 sim_elo_ratings|function|2782269d9970198e|||||||||||||||
 simulate_games|function|959808a31902dba0|||||||||||||||
+simulate_outcome|function|046035326a11e9f1|||||||||||||||
+simulate_playoff|function|7fda713d7da80a42|||||||||||||||
+slice_estimates|function|8c03d1bc0709fe93|||||||||||||||
 split_by_season|function|3954cabf12528a25|||||||||||||||
 split_games|stem|31f3c89063234305|d830626992f3f831|00346c99b04b8464|151022405|bucket=cfb_models*key=data/objects/split_games*version=1733843109775776|t20067.6285831897s||643010|qs|gcp|vector|||0.016||
 split_pbp|stem|bea49605344a5fb2|865e3c4d64b4648d|fa2099a5a05ed441|-1774338189|bucket=cfb_models*key=data/objects/split_pbp*version=1725822571902761|t19974.7982671041s||53191744|qs|gcp|vector|||2.323||
 split_plan|function|7bd6cf11641a9d69|||||||||||||||
 split_seasons|function|05fee3e32a098867|||||||||||||||
+spread_predictions_tbl|function|0376c9eb06b4b12b|||||||||||||||
+standardize_start_date|function|01a2f3b8832cf778|||||||||||||||
 static|object|65df15f73e6ae5a2|||||||||||||||
 summarize_pbp_effect|function|bf015ebd3b06898d|||||||||||||||
 summarize_simulations|function|10ac97b72715d050|||||||||||||||
+summarize_wins_by_round|function|c184aada2eb23e4c|||||||||||||||
+summarize_wins_by_team|function|cf5a1543508301e7|||||||||||||||
 team_category_estimates_tbl|function|ea6dac3eb4cd8bff|||||||||||||||
 team_conferences|stem|f6b93d6424dca637|609776687e756d99|999ee50bc487f71e|1009801208|bucket=cfb_models*key=data/objects/team_conferences*version=1725374748308135|t19969.6151407389s||3870|qs|gcp|vector|||0.004||
 team_divisions|stem|7249689131c1e345|9525b59e12621e01|f285f1c6abba5a8c|220262582|bucket=cfb_models*key=data/objects/team_divisions*version=1725374748769205|t19969.6151459435s||12179|qs|gcp|vector|||0.014||
@@ -1738,6 +1767,7 @@ team_estimates|stem|90a963109b5c4033|1de2d5be1abd6002|ded4c3fe08262c14|157871592
 team_scores|stem|00bb48966c7abfcc|211a5b83b200eebf|398be55682dfb3f6|-1315939162|bucket=cfb_models*key=data/objects/team_scores*version=1733842596513244|t20067.6226423039s||1053771|qs|gcp|vector|||4.227||
 theme_cfb|function|626133eb8283821d|||||||||||||||
 top_plays_by_game|function|71be01327e7123bb|||||||||||||||
+total_sims|stem|1158430bd8458da3|9db0746a743cf510|2c530c1562a7fbd1|1802241001|bucket=cfb_models*key=data/objects/total_sims*version=1734028430275196|t20069.7734959824s||46|qs|gcp|vector|||2.378||
 tune_elo_ratings|function|c4dea64ad0e68bc1|||||||||||||||
 turnover_text|function|c62307697e4d0f30|||||||||||||||
 weights_from_dates|function|cbb8975853ecea34|||||||||||||||
