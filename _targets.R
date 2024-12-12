@@ -632,7 +632,8 @@ list(
         playoff_teams,
         estimates = current_team_estimates,
         model = games_model |> extract_fit_engine()
-      )
+      ) |>
+        mutate(.draw = .x)
     ) |> list_rbind()
   )
 )

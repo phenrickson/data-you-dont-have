@@ -25,11 +25,13 @@ library(cowplot)
 library(furrr)
 library(purrr)
 
-# set plan
-plan(multisession, workers = 6)
+# # set plan
+# plan(multisession, workers = 6)
 
 # src
 targets::tar_source("R")
+
+theme_set(theme_cfb() + theme(panel.grid.major = element_blank()))
 
 ```
 
@@ -42,14 +44,22 @@ team_scores = tar_read("team_scores")
 games_model = tar_read("games_model")
 model = games_model |> extract_fit_engine()
 
+# active estimates
+tar_load(current_team_estimates)
+
 # regular season predictions
-regular_season_predictions = tar_read("games_sims") |>
+regular_season_predictions = 
+  tar_read("games_sims") |>
   filter(season_type == 'regular')
 
-# get most recent team estimates
-current_estimates = 
-  team_estimates |>
-  slice_estimates()
+# game predictions
+game_sims = tar_read("games_sims")
+
+# playoff teams
+tar_load(playoff_teams)
+
+# playoff sims
+tar_load(playoff_sims)
 
 ```
 
@@ -58,7 +68,11 @@ current_estimates =
 # retrieve up to date games and betting lines
 # get game info
 game_info <-
-  load_games(year = params$season, season_type = 'postseason')
+  load_games(year = params$season, season_type = 'both')
+
+playoff_games = 
+  game_info |>
+  filter(grepl("College Football Playoff", notes))
 
 # # get betting lines
 # betting_lines <-
@@ -71,53 +85,9 @@ game_info <-
 #| messgae: false
 #| warning: false
 
-postseason_games = 
-  game_info |>
-  prepare_games_for_model(estimates = team_estimates, 
-                          season_week = paste(params$season, params$week, sep = "_")) |>
-  filter(season_type == 'postseason')
-
-playoff_ids = 
-  game_info |>
-  filter(grepl("College Football Playoff", notes)) |>
-  select(game_id)
-
-playoff_games = 
-  postseason_games |>
-  inner_join(
-    playoff_ids
-  )
-
-bowl_games = 
-  postseason_games |>
-  anti_join(
-    playoff_ids
-  )
-
-playoff_sims =
-  games_model |>
-  simulate_games(
-    newdata = playoff_games
-  )
-
-bowl_sims = 
-  games_model |>
-  simulate_games(
-    newdata = bowl_games
-  )
-
-bowl_predictions = 
-  bowl_sims |>
-  summarize_simulations()
-
-playoff_predictions = 
-  playoff_sims |>
-  summarize_simulations()
-
+# get game predictions
 game_predictions =
-  bind_rows(regular_season_predictions,
-            bowl_predictions, 
-            playoff_predictions) |>
+  game_sims |>
   add_game_info(game_info = game_info) |>
   add_team_scores(teams_data = team_scores,
                   current_season = params$season,
@@ -129,34 +99,14 @@ postseason_predictions =
   game_predictions |>
   filter(season_type == 'postseason')
 
-game_predictions_and_betting_lines =
-  game_predictions |>
-  join_betting_lines(betting_lines)
-
 ```
 
 ```{r}
 #| label: set playoff teams and get their ratings
 #| message: false
 #| warning: false
-playoff_teams = 
-  c('Oregon', 
-    'Georgia', 
-    'Boise State', 
-    'Arizona State', 
-    'Texas', 
-    'Penn State', 
-    'Notre Dame', 
-    'Ohio State', 
-    'Tennessee', 
-    'Indiana', 
-    'SMU', 
-    'Clemson')
 
-current_estimates = 
-  team_estimates |>
-  slice_estimates()
-
+# table of playoff team ratings
 playoff_ratings = 
   team_scores |>
   inner_join(
@@ -170,42 +120,19 @@ playoff_ratings =
 
 ```
 
-# CFB Playoff
+# Playoff Simulations
 
-::: {.callout-note collapse="true"}
+The following predictions come from a game prediction model I trained on historical college football games. The inputs into the game prediction model are team level measures of offensive/defensive/special teams efficiency, which I estimate from play by play data. I simulate each game thousands of times in order to estimate the home team's win probability and expected margin of victory (or defeat).
+
+::: {.callout-note collapse="false"}
 
 ## About the Table
-
-The following table displays the results from simulating the college football playoff using my game prediction model.
 
 **Team Ratings** refer to the team's estimated efficiency on offense and defense in terms of expected points added per play, adjusted for opponent quality.
 
 **Win Probabilities** refer to the proportion of simulations in which the team won their matchup in each round. 
 
 :::
-
-```{r}
-#| label: run simulations
-#| warning: false
-#| message: false
-
-# number of sims
-n = 20000
-
-playoff_sims = 
-  future_map(
-    1:n,
-    ~ simulate_playoff(
-      playoff_teams,
-      estimates = current_estimates,
-      model = model
-    ) |>
-      mutate(.draw = .x),
-    .options=furrr_options(seed = TRUE)
-  ) |>
-  list_rbind()
-
-```
 
 ```{r}
 #| message: false
@@ -218,9 +145,68 @@ playoff_sims |>
     ratings = playoff_ratings
   ) |>
   gt::tab_header("2024 College Football Playoff Simulations",
-                 subtitle = paste("Results based on 2p0,000 simulations from team efficiency model"))
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 ```
 
+
+<!-- ## Bracket -->
+
+<!-- ```{r} -->
+<!-- #| fig-width: 10 -->
+<!-- #| column: body-outset-right -->
+<!-- playoff_sims |> -->
+<!--   summarize_wins_by_team() |> -->
+<!--   plot_bracket() -->
+
+<!-- ``` -->
+
+## Matchups
+
+What are the most likely matchups in the playoff?
+
+::: {.panel-tabset .nav-pills}
+
+### Quarterfinal
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+playoff_sims |>
+  filter(round == 'quarterfinal') |>
+  plot_matchups()
+  #facet_wrap(paste("quarterfinal") ~.)
+
+```
+
+### Semi-Finals
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+playoff_sims |>
+  filter(round == 'semifinal') |>
+  plot_matchups()
+
+```
+
+### Championship
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+playoff_sims |>
+  filter(round == 'championship') |>
+  plot_matchups() +
+  facet_wrap(paste("championship") ~ .)+
+  theme(axis.text.y = element_text(size = 8))
+  #facet_wrap(paste("quarterfinal") ~.)
+
+```
+
+:::
 
 <!-- ## Matchups -->
 
@@ -235,7 +221,7 @@ playoff_sims |>
 
 
 <!-- ```{r} -->
-<!-- #| fig-height: 9 -->
+<!-- #| fig-height: 8 -->
 <!-- #| fig-width: 10 -->
 <!-- playoff_sims |> -->
 <!--   summarize_wins_by_team() |> -->

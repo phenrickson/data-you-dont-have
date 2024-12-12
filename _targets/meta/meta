@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|8c7902446266bfa0|||||||||||||||
+.Random.seed|object|bdd115cde70b7569|||||||||||||||
 add_correct|function|eb96e0b644ab16b8|||||||||||||||
 add_elo_predictions|function|e3eb35fb1b7ad6e4|||||||||||||||
 add_expected_points|function|0bf3484101e66081|||||||||||||||
@@ -1512,7 +1512,7 @@ penalty_text|function|93229a4eddcd7124|||||||||||||||
 pivot_estimates|function|066a47439309bca4|||||||||||||||
 pivot_games_to_teams|function|a10cf1da1d27c7f2|||||||||||||||
 pivot_pbp|function|12a0041efb9c7ee0|||||||||||||||
-playoff_sims|stem|001c25c400bd8c55|f4445d6d6f12c4e8|777dd71c0a56c31e|-837456272|bucket=cfb_models*key=data/objects/playoff_sims*version=1734029685808965|t20069.788024866s||444745|qs|gcp|vector|||664.528||
+playoff_sims|stem|f3c18cb07bcbf2da|21d31b3f04666490|777dd71c0a56c31e|-837456272|bucket=cfb_models*key=data/objects/playoff_sims*version=1734030877401114|t20069.8018165758s||449590|qs|gcp|vector|||660.657||
 playoff_teams|stem|a3abaac49da2383d|b60419a1635ecb26|2c530c1562a7fbd1|336452415|bucket=cfb_models*key=data/objects/playoff_teams*version=1734028357062099|t20069.7726486484s||134|qs|gcp|vector|||2.791||
 plays_points_tbl|function|40e35081dab2603c|||||||||||||||
 plot_bracket|function|f74915ecfc95448f|||||||||||||||
