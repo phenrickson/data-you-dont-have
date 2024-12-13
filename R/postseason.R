@@ -508,7 +508,7 @@ plot_matchups = function(data) {
     ggplot(aes(x=n, fill = winner, y=reorder(matchup, games)))+
     geom_col()+
     cfbplotR::scale_fill_cfb()+
-    facet_wrap(paste(round, round_game) ~., scales = "free")+
+#    facet_wrap(paste(round, round_game) ~., scales = "free")+
     labs(y = "", x = "sims")+
     theme_light()+
     geom_text(aes(label = prop), color = 'white', position = position_stack(vjust = 0.5), size = 2.5)+

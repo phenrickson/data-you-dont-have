@@ -9,6 +9,7 @@ format:
     echo: false
     warning: false
     number-sections: false
+    fig-format: svg
 params:
     season: 2024
     week: 16
@@ -162,51 +163,18 @@ playoff_sims |>
 
 ## Matchups
 
-What are the most likely matchups in the playoff?
-
-::: {.panel-tabset .nav-pills}
-
-### Quarterfinal
+What are the most likely matchups in the national championship?
 
 ```{r}
 #| fig-width: 10
-#| fig-height: 8
-
-playoff_sims |>
-  filter(round == 'quarterfinal') |>
-  plot_matchups()
-  #facet_wrap(paste("quarterfinal") ~.)
-
-```
-
-### Semi-Finals
-
-```{r}
-#| fig-width: 10
-#| fig-height: 8
-
-playoff_sims |>
-  filter(round == 'semifinal') |>
-  plot_matchups()
-
-```
-
-### Championship
-
-```{r}
-#| fig-width: 10
-#| fig-height: 8
+#| fig-height: 8.5
 
 playoff_sims |>
   filter(round == 'championship') |>
-  plot_matchups() +
-  facet_wrap(paste("championship") ~ .)+
-  theme(axis.text.y = element_text(size = 8))
+  plot_matchups()
   #facet_wrap(paste("quarterfinal") ~.)
 
 ```
-
-:::
 
 <!-- ## Matchups -->
 
