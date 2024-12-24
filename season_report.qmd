@@ -10,7 +10,7 @@ format:
     number-sections: false
 params:
     season: 2024
-    week: 16
+    week: 17
 ---
 
 ```{r}
@@ -27,6 +27,7 @@ library(yardstick)
 library(patchwork)
 library(cfbplotR)
 
+# set params
 # src code
 tar_source("R")
 
@@ -41,31 +42,34 @@ add_gt_formatting = function(tbl, ...) {
 ```
 
 ```{r}
-
 team_info <- cfbfastR::cfbd_team_info(year = params$season)
 team_estimates <- tar_read("season_team_estimates")
 team_scores <- tar_read("team_scores")
-team_category_estimates = tar_read("season_team_category_estimates")
+team_category_estimates <- tar_read("season_team_category_estimates")
 
-join_team_info = function(data, teams = team_info) {
-
+join_team_info <- function(data, teams = team_info) {
   data |>
     inner_join(
       teams |>
         adjust_team_names(cols = "school") |>
-        select(team = school,
-               conference,
-               abbreviation),
+        select(
+          team = school,
+          conference,
+          abbreviation
+        ),
       by = join_by(team)
     )
 }
 
-current_scores =
+current_scores <-
   team_scores |>
   filter(season == params$season) |>
   add_season_week() |>
   group_by(team) |>
   arrange(season, week) |>
+  group_by(team, season, week) |>
+  slice_head(n = 1) |>
+  ungroup() |>
   group_by(team) |>
   mutate(diff = round(score - dplyr::lag(score, 1), 2)) |>
   ungroup() |>
@@ -386,8 +390,8 @@ The following plot displays all FBS teams based on their estimated offensive/def
 current_scores =
   team_scores |>
   filter(season == params$season) |>
-  filter(season_week == max(season_week)) |>
   add_season_week() |>
+  filter(week == max(week)) |>
   arrange(desc(season_week), desc(score)) |>
   mutate(rank = rank(-score)) |>
   select(season, week, rank, team, everything()) |>
@@ -476,9 +480,15 @@ The following table displays all FBS teams based on their estimated efficiency f
 #| column: body-outset-right
 team_category_estimates |>
   prepare_team_category_estimates() |>
-  filter(season == params$season) |>
+  unnest(everything()) |>
   add_season_week() |>
+  group_by(season, week, team) |>
+  slice_tail(n = 1) |>
+  ungroup() |>
+  filter(season == params$season) |>
   filter(week == max(week)) |>
+  arrange() |>
+  arrange(desc(estimate_rush_offense)) |>
   team_category_estimates_tbl() |>
   add_gt_formatting()
 

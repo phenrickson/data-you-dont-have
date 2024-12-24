@@ -45,7 +45,8 @@ games_model = tar_read("games_model")
 model = games_model |> extract_fit_engine()
 
 # active estimates
-tar_load(current_team_estimates)
+tar_load(pre_playoff_estimates)
+tar_load(pre_quarterfinal_estimates)
 
 # regular season predictions
 regular_season_predictions = 
@@ -107,14 +108,12 @@ postseason_predictions =
 #| warning: false
 
 # table of playoff team ratings
-playoff_ratings = 
+pre_playoff_ratings = 
   team_scores |>
   inner_join(
     tibble(team = playoff_teams)
   ) |>
-  add_season_week() |>
-  filter(season == max(season)) |>
-  filter(week == max(week)) |>
+  filter(season_week == '2024_17') |>
   arrange(desc(score)) |>
   select(season, team, score, offense, defense, special)
 
@@ -134,6 +133,10 @@ The following predictions come from a game prediction model I trained on histori
 
 :::
 
+::: {.panel-tabset .nav-pills}
+
+### Pre-Playoff
+
 ```{r}
 #| message: false
 #| warning: false
@@ -142,12 +145,13 @@ The following predictions come from a game prediction model I trained on histori
 
 playoff_sims |>
   gt_playoff_probs(
-    ratings = playoff_ratings
+    ratings = pre_playoff_ratings
   ) |>
   gt::tab_header("2024 College Football Playoff Simulations",
                  subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 ```
 
+:::
 
 <!-- ## Bracket -->
 

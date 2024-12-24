@@ -1,5 +1,5 @@
 add_gt_formatting = function(tbl, ...) {
-  
+
   tbl |>
     gt::opt_row_striping(row_striping = F) |>
     gt::tab_options(table.font.size = 14,
@@ -7,15 +7,15 @@ add_gt_formatting = function(tbl, ...) {
 }
 
 standardize_start_date = function(data) {
-  
+
   data |>
     mutate(start_date = lubridate::as_datetime(start_date), tz = "UTC") |>
     arrange(start_date)
-  
+
 }
 
 add_game_info = function(data, game_info) {
-  
+
   data |>
     join_team_divisions(games = game_info) |>
     prepare_fcs_teams() |>
@@ -27,7 +27,7 @@ add_game_info = function(data, game_info) {
 }
 
 load_betting_lines = function(year, season_type = c('regular', 'postseason')) {
-  
+
   map(
     season_type,
     ~ cfbfastR::cfbd_betting_lines(year = year,
@@ -35,46 +35,46 @@ load_betting_lines = function(year, season_type = c('regular', 'postseason')) {
   ) |>
     list_rbind() |>
     as_tibble() |>
-    standardize_start_date() 
-  
+    standardize_start_date()
+
 }
 
 load_games = function(year, season_type = c("both"), ...) {
-  
+
   cfbfastR::cfbd_game_info(year = year, season_type = season_type, ...) |>
     as_tibble() |>
     adjust_team_names() |>
     standardize_start_date()
-  
+
 }
 
 prepare_games_for_model = function(data, estimates, season_week) {
-  
+
   data |>
     prepare_game_info() |>
     add_game_weeks() |>
     prepare_fcs_teams() |>
-    select(season, 
-           season_type, 
-           season_week, 
-           week, 
-           week_date, 
-           start_date, 
-           game_id, 
-           completed, 
+    select(season,
+           season_type,
+           season_week,
+           week,
+           week_date,
+           start_date,
+           game_id,
+           completed,
            neutral_site,
            home_id,
            away_id,
            home_team,
            away_team,
-           home, 
+           home,
            away) |>
     join_team_estimates(estimates = estimates, season_week = season_week)
-  
+
 }
 
 add_team_estimates = function(data, estimates) {
-  
+
   data |>
     inner_join(
       estimates |>
@@ -101,7 +101,7 @@ add_team_estimates = function(data, estimates) {
 }
 
 create_seeds = function(teams) {
-  
+
   tibble(team = teams) |>
     mutate(seed = row_number())
 }
@@ -115,40 +115,40 @@ create_initial_matchups <- function(teams) {
     away_team = round1_teams$team[c(8, 7, 6, 5)],
     neutral_site = 0
   )
-  
+
   return(matchups)
-  
+
 }
 
 slice_estimates = function(data) {
-  
+
   data |>
     group_by(team) |>
     slice_max(week_date, n =1) |>
     ungroup() |>
     select(
-      season, 
-      week_date, 
+      season,
+      week_date,
       team,
       overall = postgame_overall,
       offense = postgame_offense,
       defense = postgame_defense,
       special = postgame_special
     )
-  
+
 }
 
 simulate_outcome = function(data, model, seed = 1999, ndraws = 4000, ...) {
-  
+
   simulate_matchup = function(data, model, seed = 1999, ndraws = 4000, ...) {
-    
+
     round_prediction <- function(x) {
       rounded <- round(x)
       ifelse(rounded == 0, ifelse(x > 0, 1, -1), rounded)
     }
-    
+
     simulate_ot = function(data) {
-      
+
       data |>
         mutate(.prediction = case_when(
           .prediction == 0 ~ sample(c(3, -3, 7, -7, 2, -2), size = 1, replace = T),
@@ -156,18 +156,18 @@ simulate_outcome = function(data, model, seed = 1999, ndraws = 4000, ...) {
         )) |>
         mutate(.prediction = round_prediction(.prediction))
     }
-    
+
     set.seed(seed)
     sims =
       model |>
       tidybayes::predicted_draws(newdata = data, ndraws = ndraws,  seed = seed, ...) |>
       simulate_ot() |>
       select(any_of(".draw"), everything())
-    
+
   }
-  
+
   add_simulated_outcome = function(data) {
-    
+
     data |>
       mutate(
         home_win = case_when(
@@ -181,26 +181,26 @@ simulate_outcome = function(data, model, seed = 1999, ndraws = 4000, ...) {
         winner = case_when(home_win == 'yes' ~ home_team, home_win == 'no' ~ away_team)
       )
   }
-  
+
   add_matchup_outcome = function(data) {
-    
+
     data |>
       mutate(winner_seed = case_when(home_win == 'yes' ~ home_seed, home_win == 'no' ~ away_seed))
   }
-  
+
   data |>
     simulate_matchup(model = model, seed = seed, ndraws = ndraws, ...) |>
     ungroup() |>
     select(home_seed, home_team, away_seed, away_team, .draw, .prediction) |>
     add_simulated_outcome() |>
     add_matchup_outcome()
-  
+
 }
 
 create_quarterfinal = function(byes, winners) {
-  
+
   top_seeds = byes[order(byes$seed, decreasing = T),]
-  
+
   tibble(
     home_seed = top_seeds$seed,
     home_team = top_seeds$team,
@@ -214,36 +214,36 @@ create_quarterfinal = function(byes, winners) {
 }
 
 create_semifinal = function(winners) {
-  
+
   semi_1 = winners[1:2,] |> arrange(seed)
   semi_2 = winners[3:4,] |> arrange(seed)
-  
-  
-  matchup_1 = 
+
+
+  matchup_1 =
     tibble(
       home_seed = semi_1[1,]$seed,
       home_team = semi_1[1,]$team,
       away_seed = semi_1[2,]$seed,
       away_team = semi_1[2,]$team
     )
-  
-  matchup_2 = 
+
+  matchup_2 =
     tibble(
       home_seed = semi_2[1,]$seed,
       home_team = semi_2[1,]$team,
       away_seed = semi_2[2,]$seed,
       away_team = semi_2[2,]$team
     )
-  
+
   bind_rows(matchup_1, matchup_2) |>
     mutate(neutral_site = 1)
-  
+
 }
 
 create_championship = function(winners) {
-  
+
   semis = winners |> arrange(seed)
-  
+
   tibble(
     home_seed = semis[1,]$seed,
     home_team = semis[1,]$team,
@@ -251,74 +251,74 @@ create_championship = function(winners) {
     away_team = semis[2,]$team
   ) |>
     mutate(neutral_site = 1)
-  
+
 }
 
 simulate_playoff = function(playoff_teams, estimates, model) {
-  
-  playoff_seeds = 
+
+  playoff_seeds =
     playoff_teams |>
     create_seeds()
-  
-  round1_matchups = 
+
+  round1_matchups =
     playoff_teams |>
     create_seeds() |>
     create_initial_matchups() |>
     add_team_estimates(estimates = estimates)
-  
+
   round1 =
     round1_matchups |>
     simulate_outcome(model = model, ndraws = 1, seed = NULL)
-  
-  round1_winners = 
+
+  round1_winners =
     round1 |>
     select(team = winner,
            seed = winner_seed)
-  
+
   round1_byes =
     playoff_seeds |>
     filter(seed <= 4)
-  
-  quarterfinal_matchups = 
+
+  quarterfinal_matchups =
     create_quarterfinal(
       round1_byes,
       round1_winners
     ) |>
     add_team_estimates(estimates = estimates)
-  
-  quarterfinals = 
+
+  quarterfinals =
     quarterfinal_matchups |>
     simulate_outcome(model = model, ndraws = 1, seed = NULL)
-  
-  quarterfinal_winners = 
+
+  quarterfinal_winners =
     quarterfinals |>
     select(team = winner, seed = winner_seed)
-  
-  semifinal_matchups = 
+
+  semifinal_matchups =
     create_semifinal(
       quarterfinal_winners
     ) |>
     add_team_estimates(estimates = estimates)
-  
-  semifinals = 
+
+  semifinals =
     semifinal_matchups |>
-    simulate_outcome(model = model, ndraws = 1, seed = NULL) 
-  
+    simulate_outcome(model = model, ndraws = 1, seed = NULL)
+
   championship_matchup =
     semifinals |>
     select(team = winner, seed = winner_seed) |>
     create_championship() |>
     add_team_estimates(estimates = estimates)
-  
-  championship = 
+
+  championship =
     championship_matchup |>
     simulate_outcome(model = model, ndraws = 1, seed = NULL)
-  
+
   championship_winner =
     championship |>
     select(team = winner, seed = winner_seed)
-  
-  games = 
+
+  games =
     bind_rows(
       round1 |>
         mutate(round = 'round_1'),
@@ -335,45 +335,124 @@ simulate_playoff = function(playoff_teams, estimates, model) {
     select(starts_with("round"), everything()) |>
     ungroup() |>
     mutate(round = factor(round, levels = c("round_1", "quarterfinal", "semifinal", "championship")))
-  
+
   return(games)
-  
+
 }
 
+simulate_playoff_after_round_1 =
+function(
+  playoff_teams,
+  round_1_teams,
+  estimates,
+  model) {
+
+    playoff_seeds =
+    playoff_teams |>
+    create_seeds()
+
+    round1_winners =
+    playoff_seeds |>
+    filter(team %in% round_1_teams) |>
+    select(team, seed)
+
+    round1_byes =
+    playoff_seeds |>
+    filter(seed <= 4)
+
+    quarterfinal_matchups =
+    create_quarterfinal(
+      round1_byes,
+      round1_winners
+    ) |>
+    add_team_estimates(estimates = estimates)
+
+    quarterfinals =
+    quarterfinal_matchups |>
+    simulate_outcome(model = model, ndraws = 1, seed = NULL)
+
+    quarterfinal_winners =
+    quarterfinals |>
+    select(team = winner, seed = winner_seed)
+
+    semifinal_matchups =
+    create_semifinal(
+      quarterfinal_winners
+    ) |>
+    add_team_estimates(estimates = estimates)
+
+    semifinals =
+    semifinal_matchups |>
+    simulate_outcome(model = model, ndraws = 1, seed = NULL)
+
+    championship_matchup =
+    semifinals |>
+    select(team = winner, seed = winner_seed) |>
+    create_championship() |>
+    add_team_estimates(estimates = estimates)
+
+    championship =
+    championship_matchup |>
+    simulate_outcome(model = model, ndraws = 1, seed = NULL)
+
+    championship_winner =
+    championship |>
+    select(team = winner, seed = winner_seed)
+
+    games =
+    bind_rows(
+      quarterfinals |>
+      mutate(round = 'quarterfinal'),
+      semifinals |>
+      mutate(round = 'semifinal'),
+      championship |>
+      mutate(round = 'championship')
+    ) |>
+    select(round, everything()) |>
+    group_by(round) |>
+    mutate(round_game = row_number()) |>
+    select(starts_with("round"), everything()) |>
+    ungroup() |>
+    mutate(round = factor(round, levels = c("round_1", "quarterfinal", "semifinal", "championship")))
+
+    return(games)
+
+  }
+
 longer_playoffs = function(data) {
-  
-  home = 
+
+  home =
     data |>
     mutate(
       round,
       round_game,
       .draw,
-      team = home_team, 
+      team = home_team,
       opponent = away_team,
       win = case_when(home_win == 'yes' ~ 'yes', TRUE ~ 'no'),
       .keep = 'none'
     ) |>
     ungroup()
-  
-  away = 
+
+  away =
     data |>
     mutate(
       round,
       round_game,
       .draw,
-      team = away_team, 
+      team = away_team,
       opponent = home_team,
       win = case_when(home_win == 'yes' ~ 'no', TRUE ~ 'yes'),
       .keep = 'none'
     ) |>
     ungroup()
-  
+
   bind_rows(home, away)
-  
+
 }
 
 summarize_wins_by_round = function(data) {
-  
+
   data |>
     group_by(round, winner) |>
     count() |>
@@ -381,9 +460,9 @@ summarize_wins_by_round = function(data) {
 }
 
 add_playoff_game_number = function(data, start) {
-  
+
   data |>
-    mutate(playoff_game_number = 
+    mutate(playoff_game_number =
              case_when(
                round == 'round_1' & round_game == 4 ~ 7.5,
                round == 'round_1' & round_game == 3 ~ 1.5,
@@ -401,7 +480,7 @@ add_playoff_game_number = function(data, start) {
 }
 
 summarize_wins_by_team = function(data) {
-  
+
   data |>
     longer_playoffs() |>
     group_by(round, round_game, team) |>
@@ -409,14 +488,14 @@ summarize_wins_by_team = function(data) {
     group_by(round, round_game)  |>
     mutate(prop = win / sum(win)) |>
     ungroup()
-  
-  
+
+
 }
 
 gt_playoff_probs = function(data, ratings) {
-  
+
   gt_playoff_probs_table = function(data) {
-    
+
     data |>
       gt::gt() |>
       gt::cols_hide(columns = c("score", "special", "season")) |>
@@ -472,16 +551,16 @@ gt_playoff_probs = function(data, ratings) {
         replacement = "✓"
       ) |>
       gtExtras::gt_theme_nytimes()
-    
-    
+
+
   }
-  
+
   n_sims = max(data$.draw)
-  
+
   data |>
     summarize_wins_by_round() |>
     pivot_wider(names_from = c("round"), values_from = c("n"), values_fill = 0) |>
-    mutate(round_1 = case_when(round_1 == 0 ~ n_sims, 
+    mutate(round_1 = case_when(round_1 == 0 ~ n_sims,
                                TRUE ~ round_1)) |>
     mutate(across(where(is.numeric), ~ .x / n_sims)) |>
     select(logo = winner, team = winner, round_1, quarterfinal, semifinal, championship) |>
@@ -492,11 +571,11 @@ gt_playoff_probs = function(data, ratings) {
     ) |>
     select(logo, team, score, offense, defense, special, everything()) |>
     gt_playoff_probs_table()
-  
+
 }
 
 plot_matchups = function(data) {
-  
+
   data |>
     group_by(round, round_game, home_team, away_team, winner) |>
     count() |>
@@ -516,8 +595,8 @@ plot_matchups = function(data) {
 }
 
 plot_bracket = function(data) {
-  
-  plot_data = 
+
+  plot_data =
     data |>
     add_playoff_game_number() |>
     group_by(playoff_game_number) |>
@@ -525,9 +604,9 @@ plot_bracket = function(data) {
     mutate(prop_label = sprintf("%.2f", prop)) |>
     mutate(playoff_game_number_team = playoff_game_number + rank) |>
     mutate(round = factor(round, levels = c("round_1", "quarterfinal", "semifinal", 'championship')))
-  
-  bracket = 
-    bracket = 
+
+  bracket =
+    bracket =
     plot_data |>
     ggplot(aes(x=round, y = playoff_game_number_team, label = paste(team, prop_label), color = team))+
     geom_text(hjust = 1, position = position_nudge(x = 0.25))+
@@ -537,7 +616,7 @@ plot_bracket = function(data) {
     labs(x = "", y ="")+
     coord_cartesian(ylim = c(1, 9))+
     theme(axis.text.y = element_blank())
-  
+
   bracket +
     geom_step(
       data = plot_data,
@@ -555,11 +634,11 @@ plot_bracket = function(data) {
     )+
     guides(linewidth = 'none')+
     scale_linewidth(range = c(0, 8))
-  
+
 }
 
 prepare_spread_predictions = function(data) {
-  
+
   data |>
     mutate(
       my_prediction = case_when(
@@ -594,7 +673,7 @@ prepare_spread_predictions = function(data) {
 }
 
 spread_predictions_tbl = function(data) {
-  
+
   data |>
     gt_tbl() |>
     gt::cols_align(
@@ -653,7 +732,7 @@ spread_predictions_tbl = function(data) {
 }
 
 plot_vs_betting_lines = function(data, lim = 60) {
-  
+
   data |>
     ggplot(aes(x = -pred_margin, y = spread, label = paste(home_team, away_team, sep = " vs "))) +
     geom_point(alpha = 0.5) +
@@ -670,7 +749,7 @@ plot_vs_betting_lines = function(data, lim = 60) {
 }
 
 betting_lines_tbl = function(data) {
-  
+
   data |>
     gt_tbl() |>
     gt::cols_align(
