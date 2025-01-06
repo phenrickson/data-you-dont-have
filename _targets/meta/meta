@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|d0a7b764668865cc|||||||||||||||
+.Random.seed|object|848cac1d0ece19ff|||||||||||||||
 add_correct|function|eb96e0b644ab16b8|||||||||||||||
 add_elo_predictions|function|e3eb35fb1b7ad6e4|||||||||||||||
 add_expected_points|function|0bf3484101e66081|||||||||||||||
@@ -1512,7 +1512,7 @@ penalty_text|function|93229a4eddcd7124|||||||||||||||
 pivot_estimates|function|066a47439309bca4|||||||||||||||
 pivot_games_to_teams|function|a10cf1da1d27c7f2|||||||||||||||
 pivot_pbp|function|12a0041efb9c7ee0|||||||||||||||
-playoff_sims|stem|088e59354c55e0b2|090558d18662df02|b01ac9230a266c56|-837456272|bucket=cfb_models*key=data/objects/playoff_sims*version=1735067567205568|t20081.800543551s||452105|qs|gcp|vector|||745.229||
+playoff_sims|stem|4c1de3dae4546415|ea490568597ca430|b01ac9230a266c56|-837456272|bucket=cfb_models*key=data/objects/playoff_sims*version=1735068949981960|t20081.81654833s||451624|qs|gcp|vector|||671.989||
 playoff_teams|stem|a3abaac49da2383d|b60419a1635ecb26|2c530c1562a7fbd1|336452415|bucket=cfb_models*key=data/objects/playoff_teams*version=1734028357062099|t20069.7726486484s||134|qs|gcp|vector|||2.791||
 plays_points_tbl|function|40e35081dab2603c|||||||||||||||
 plot_bracket|function|f74915ecfc95448f|||||||||||||||
@@ -1530,6 +1530,7 @@ plot_team_scores|function|be9003b58a7b1ea6|||||||||||||||
 plot_vs_betting_lines|function|bba4663f6a8a2c3a|||||||||||||||
 postseason_game_info|stem|85ea2f6246f325c5|bf352fded85c9a25|23420bcdbe6c2510|1731840765|bucket=cfb_models*key=data/objects/postseason_game_info*version=1734028387694563|t20069.7730032876s||2531|qs|gcp|vector|||2.712||
 pre_playoff_estimates|stem|8c6c3b5cd04e4c6b|f0c2ab15803194d9|741c130d7746851a|1063003447|bucket=cfb_models*key=data/objects/pre_playoff_estimates*version=1735066820109192|t20081.7918976659s||5206|qs|gcp|vector|||0.021||
+pre_quarterfinal_estimates|stem|106e3b8deab4531d|c1fd741d7dfa9fae|741c130d7746851a|1379935196|bucket=cfb_models*key=data/objects/pre_quarterfinal_estimates*version=1735069299607892|t20081.8205952957s||5210|qs|gcp|vector|||0.026||
 predict_pbp|function|89fc673f4a23390b|||||||||||||||
 prepare_drives|function|0cd66ed59e1e3d78|||||||||||||||
 prepare_efficiency|function|2621b3baaa00e971|||||||||||||||
@@ -1551,6 +1552,7 @@ prepare_weekly_efficiency_category|function|b72e2f171a89a396|||||||||||||||
 prepared_games|stem|02553aa4cc933f0d|e16993b0f41a42e8|3ae1601f37a33e87|1831875253|bucket=cfb_models*key=data/objects/prepared_games*version=1723218996206475|t19944.6643058467s||1238944|qs|gcp|vector|||0.055||
 prepared_pbp|stem|12ea54ee91ee097e|1f9015ff257ebff9|92d43112cba2bef2|1727894588|bucket=cfb_models*key=data/objects/prepared_pbp*version=1725822563137037|t19974.7981428219s||55470760|qs|gcp|vector|||85.04||
 punt_text|function|2eab2f1afb0e0a03|||||||||||||||
+quarterfinal_sims|stem|85454462abbdbd86|7d8027581e518db9|aa605669f59bdb16|1051900666|bucket=cfb_models*key=data/objects/quarterfinal_sims*version=1735070947896896|t20081.8396723555s||281252|qs|gcp|vector|||713.922||
 raw_efficiency_category|stem|c3c37f013c75459c|49bedb739c06862b|0ea0cb3fb3ca2c95|788443334|bucket=cfb_models*key=data/objects/raw_efficiency_category*version=1725831652475080|t19974.90338342s||302951|qs|gcp|vector|||2.54||
 raw_efficiency_overall|stem|b9664b1d0e238f2f|933458f198af2e77|0ea0cb3fb3ca2c95|1782813637|bucket=cfb_models*key=data/objects/raw_efficiency_overall*version=1725823971552738|t19974.8144838646s||104330|qs|gcp|vector|||2.37||
 rename_home_away|function|25a82f056e377a93|||||||||||||||
@@ -1769,6 +1771,7 @@ sim_elo_ratings|function|2782269d9970198e|||||||||||||||
 simulate_games|function|959808a31902dba0|||||||||||||||
 simulate_outcome|function|046035326a11e9f1|||||||||||||||
 simulate_playoff|function|7fda713d7da80a42|||||||||||||||
+simulate_playoff_after_round_1|function|ae583a5cfd2b3fb3|||||||||||||||
 slice_estimates|function|8c03d1bc0709fe93|||||||||||||||
 split_by_season|function|3954cabf12528a25|||||||||||||||
 split_games|stem|31f3c89063234305|d830626992f3f831|00346c99b04b8464|151022405|bucket=cfb_models*key=data/objects/split_games*version=1733843109775776|t20067.6285831897s||643010|qs|gcp|vector|||0.016||
