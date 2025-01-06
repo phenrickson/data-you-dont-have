@@ -854,3 +854,171 @@ gt_quarterfinal_probs = function(data, ratings) {
     gt_playoff_probs_table()
   
 }
+
+simulate_playoff_after_quarterfinal =
+  function(
+    playoff_teams,
+    round_1_teams,
+    quarterfinal_teams,
+    estimates,
+    model) {
+    
+    playoff_seeds =
+      playoff_teams |>
+      create_seeds()
+    
+    round1_winners =
+      playoff_seeds |>
+      filter(team %in% round_1_teams) |>
+      select(team, seed)
+    
+    round1_byes =
+      playoff_seeds |>
+      filter(seed <= 4)
+  
+    quarterfinal_winners =
+      playoff_seeds |>
+      filter(team %in% quarterfinal_teams) |>
+      select(team, seed) |>
+      reorder_seeds()
+    
+    semifinal_matchups =
+      create_semifinal(
+        quarterfinal_winners
+      ) |>
+      add_team_estimates(estimates = estimates)
+    
+    semifinals =
+      semifinal_matchups |>
+      simulate_outcome(model = model, ndraws = 1, seed = NULL)
+    
+    championship_matchup =
+      semifinals |>
+      select(team = winner, seed = winner_seed) |>
+      create_championship() |>
+      add_team_estimates(estimates = estimates)
+    
+    championship =
+      championship_matchup |>
+      simulate_outcome(model = model, ndraws = 1, seed = NULL)
+    
+    championship_winner =
+      championship |>
+      select(team = winner, seed = winner_seed)
+    
+    games =
+      bind_rows(
+        semifinals |>
+          mutate(round = 'semifinal'),
+        championship |>
+          mutate(round = 'championship')
+      ) |>
+      select(round, everything()) |>
+      group_by(round) |>
+      mutate(round_game = row_number()) |>
+      select(starts_with("round"), everything()) |>
+      ungroup() |>
+      mutate(round = factor(round, levels = c("round_1", "quarterfinal", "semifinal", "championship")))
+    
+    return(games)
+    
+  }
+
+
+reorder_seeds <- function(df) {
+
+  # Identify the rows with the lowest and highest seeds
+  lowest_index <- which.min(df$seed)
+  highest_index <- which.max(df$seed)
+  
+  # Extract the rows for the lowest and highest seeds
+  lowest <- df[lowest_index, ]
+  highest <- df[highest_index, ]
+  
+  # Create the reordered dataframe
+  remaining <- df[-c(lowest_index, highest_index), ] # Exclude the lowest and highest rows
+  reordered <- rbind(lowest, highest, remaining)
+  
+  return(reordered)
+}
+
+gt_semifinal_probs = function(data, ratings) {
+  
+  gt_playoff_probs_table = function(data) {
+    
+    data |>
+      gt::gt() |>
+      gt::cols_hide(columns = c("score", "special", "season")) |>
+      gt::fmt_number(columns = everything(), decimals = 3) |>
+      gtExtras::gt_theme_espn() |>
+      gt::opt_row_striping(row_striping = F) |>
+      gt::cols_label(
+        "round_1" ~ html("Round 1"),
+        "quarterfinal" ~ html("Quarterfinal"),
+        "semifinal" ~ html("Semi-Final"),
+        "championship" ~ html("Championship")
+      ) |>
+      gt::cols_width(
+        logo ~ px(75),
+        team ~ px(100),
+        offense ~ px(90),
+        defense ~ px(90),
+        round_1 ~ px(125),
+        quarterfinal ~ px(125),
+        semifinal ~ px(125),
+        championship ~ px(125)
+      ) |>
+      gt::cols_align(columns = -c("team"), align = "center") |>
+      gt::data_color(columns = c("round_1", "quarterfinal", "semifinal", "championship"),
+                     domain = c(0, .9),
+                     na_color = "deepskyblue1",
+                     palette = c("white", "deepskyblue1")) |>
+      cfbplotR::gt_fmt_cfb_logo("logo") |>
+      gt::tab_spanner(
+        columns = c("round_1", "quarterfinal", "semifinal", "championship"),
+        label = "win probability"
+      ) |>
+      gt::tab_spanner(
+        columns = c("offense", "defense"),
+        label = "team rating"
+      ) |>
+      gt::data_color(
+        columns = c("offense", "defense", "special"),
+        palette = c("orange", "white", "navy"),
+        domain = c(-.25, .4)
+      ) |>
+      gt::tab_style(
+        style = cell_borders(
+          sides = "left",
+          color = "white"
+        ),
+        locations = cells_body(
+          columns = c("round_1")
+        )
+      ) |>
+      gt::sub_values(
+        values = "1",
+        replacement = "✓"
+      ) |>
+      gtExtras::gt_theme_nytimes()
+    
+    
+  }
+  
+  n_sims = max(data$.draw)
+  
+  data |>
+    summarize_wins_by_round() |>
+    pivot_wider(names_from = c("round"), values_from = c("n"), values_fill = 0) |>
+    mutate(across(where(is.numeric), ~ .x / n_sims)) |>
+    mutate(round_1 = 1,
+           quarterfinal = 1) |>
+    select(logo = winner, team = winner, round_1, quarterfinal, semifinal, championship) |>
+    arrange(desc(championship)) |>
+    inner_join(
+      ratings
+    ) |>
+    select(logo, team, score, offense, defense, special, everything()) |>
+    gt_playoff_probs_table()
+  
+}
