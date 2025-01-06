@@ -48,6 +48,7 @@ model = games_model |> extract_fit_engine()
 # active estimates
 tar_load(pre_playoff_estimates)
 tar_load(pre_quarterfinal_estimates)
+tar_load(pre_semifinal_estimates)
 
 # regular season predictions
 regular_season_predictions = 
@@ -65,6 +66,8 @@ tar_load(playoff_sims)
 
 # quaterfinal sims
 tar_load(quarterfinal_sims)
+
+tar_load(semifinal_sims)
 
 ```
 
@@ -114,20 +117,17 @@ postseason_predictions =
 # table of playoff team ratings
 pre_playoff_ratings = 
   pre_playoff_estimates |>
-  inner_join(
-    team_scores |>
-      filter(season_type == 'postseason')
-  ) |>
-  select(season, team, score, offense, defense, special)
+  select(season, team, score = overall, offense, defense, special)
 
 # table of playoff team ratings prior to quarterfinal
 pre_quarterfinal_ratings = 
   pre_quarterfinal_estimates |>
-  inner_join(
-    team_scores |>
-      filter(season_type == 'postseason')
-  ) |>
-  select(season, team, score, offense, defense, special)
+  select(season, team, score = overall, offense, defense, special)
+
+# table of playoff team ratings prior to semifinal
+pre_semifinal_ratings = 
+  pre_semifinal_estimates |>
+  select(season, team, score = overall, offense, defense, special)
 
 ```
 
@@ -178,6 +178,23 @@ quarterfinal_sims |>
   gt::tab_header("2024 College Football Playoff Simulations",
                  subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 ```
+
+### Semifinal
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+semifinal_sims |>
+  gt_semifinal_probs(
+    ratings = pre_semifinal_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+```
+
 :::
 
 
