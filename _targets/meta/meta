@@ -1,5 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|6bec048b84d316c7|||||||||||||||
+.Random.seed|object|23acc22668287885|||||||||||||||
 add_correct|function|eb96e0b644ab16b8|||||||||||||||
 add_elo_predictions|function|e3eb35fb1b7ad6e4|||||||||||||||
 add_expected_points|function|0bf3484101e66081|||||||||||||||
@@ -1472,6 +1472,7 @@ gt_est_color|function|b60871c474ffd160|||||||||||||||
 gt_playoff_probs|function|4e193d1866bbcb8a|||||||||||||||
 gt_quarterfinal_probs|function|22445382e5159fed|||||||||||||||
 gt_rank_color|function|ca4429708f7f0e1c|||||||||||||||
+gt_semifinal_probs|function|cff0487533207966|||||||||||||||
 gt_tbl|function|b573d3595e93ede7|||||||||||||||
 harmonic_mean|function|009460d26cc5a6d7|||||||||||||||
 int_text|function|31a2395b5eed20fb|||||||||||||||
@@ -1532,7 +1533,7 @@ plot_vs_betting_lines|function|bba4663f6a8a2c3a|||||||||||||||
 postseason_game_info|stem|85ea2f6246f325c5|bf352fded85c9a25|23420bcdbe6c2510|1731840765|bucket=cfb_models*key=data/objects/postseason_game_info*version=1734028387694563|t20069.7730032876s||2531|qs|gcp|vector|||2.712||
 pre_playoff_estimates|stem|8c6c3b5cd04e4c6b|f0c2ab15803194d9|741c130d7746851a|1063003447|bucket=cfb_models*key=data/objects/pre_playoff_estimates*version=1735066820109192|t20081.7918976659s||5206|qs|gcp|vector|||0.021||
 pre_quarterfinal_estimates|stem|106e3b8deab4531d|c1fd741d7dfa9fae|741c130d7746851a|1379935196|bucket=cfb_models*key=data/objects/pre_quarterfinal_estimates*version=1735069299607892|t20081.8205952957s||5210|qs|gcp|vector|||0.026||
-pre_semifinal_estimates|stem|5ccc2b839a5ab2d0|bb313d1f156c113e|6ba5f4578873bd40|-363373937|bucket=cfb_models*key=data/objects/pre_semifinal_estimates*version=1736181304466406|t20094.6910225292s||5210|qs|gcp|vector|||0.147||
+pre_semifinal_estimates|stem|f8b9814718ee2cb0|0d2d9925d7ad4904|6ba5f4578873bd40|-363373937|bucket=cfb_models*key=data/objects/pre_semifinal_estimates*version=1736191507780269|t20094.8091157521s||5203|qs|gcp|vector|||0.024||
 predict_pbp|function|89fc673f4a23390b|||||||||||||||
 prepare_drives|function|0cd66ed59e1e3d78|||||||||||||||
 prepare_efficiency|function|2621b3baaa00e971|||||||||||||||
@@ -1791,7 +1792,7 @@ season_team_estimates_fce445198ab42dc5|branch|51ce5d92c40ef69b|305514e221a06b84|
 season_weeks|stem|704d103d2a27bd87|c4fa82099f708c34|6e6f64cdf255422e|1562183061|bucket=cfb_models*key=data/objects/season_weeks*version=1736180326514305|t20094.6797037658s||112|qs|gcp|vector|||0.226||
 seasons|object|a3a5673ed49c208e|||||||||||||||
 select_elo_params|function|6903f9afe9c00a9f|||||||||||||||
-semifinal_sims|stem|9f71693cc991b322|f231a8ecefdf231c|d055d9ea0c46a93b|281046290|bucket=cfb_models*key=data/objects/semifinal_sims*version=1736183260597886|t20094.7136608471s||94469|qs|gcp|vector|||358.49||
+semifinal_sims|stem|e2c15c50389c11c7|f231a8ecefdf231c|c9af6d4fda53cb47|281046290|bucket=cfb_models*key=data/objects/semifinal_sims*version=1736191903423978|t20094.8136941596s||95279|qs|gcp|vector|||393.653||
 sim_elo_ratings|function|2782269d9970198e|||||||||||||||
 simulate_games|function|959808a31902dba0|||||||||||||||
 simulate_outcome|function|046035326a11e9f1|||||||||||||||

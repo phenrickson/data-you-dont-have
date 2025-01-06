@@ -672,9 +672,8 @@ list(
   tar_target(
     pre_semifinal_estimates,
     season_team_estimates |>
-      filter(season_week == '2024_19') |>
-      slice_estimates(),
-    cue = tar_cue(mode = "never")
+      filter(season_week == '2024_20') |>
+      slice_estimates()
   ),
   tar_target(
     semifinal_sims,
