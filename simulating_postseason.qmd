@@ -46,7 +46,8 @@ games_model = tar_read("games_model")
 model = games_model |> extract_fit_engine()
 
 # active estimates
-tar_load(current_team_estimates)
+tar_load(pre_playoff_estimates)
+tar_load(pre_quarterfinal_estimates)
 
 # regular season predictions
 regular_season_predictions = 
@@ -61,6 +62,9 @@ tar_load(playoff_teams)
 
 # playoff sims
 tar_load(playoff_sims)
+
+# quaterfinal sims
+tar_load(quarterfinal_sims)
 
 ```
 
@@ -108,15 +112,21 @@ postseason_predictions =
 #| warning: false
 
 # table of playoff team ratings
-playoff_ratings = 
-  team_scores |>
+pre_playoff_ratings = 
+  pre_playoff_estimates |>
   inner_join(
-    tibble(team = playoff_teams)
+    team_scores |>
+      filter(season_type == 'postseason')
   ) |>
-  add_season_week() |>
-  filter(season == max(season)) |>
-  filter(week == max(week)) |>
-  arrange(desc(score)) |>
+  select(season, team, score, offense, defense, special)
+
+# table of playoff team ratings prior to quarterfinal
+pre_quarterfinal_ratings = 
+  pre_quarterfinal_estimates |>
+  inner_join(
+    team_scores |>
+      filter(season_type == 'postseason')
+  ) |>
   select(season, team, score, offense, defense, special)
 
 ```
@@ -135,6 +145,10 @@ The following predictions come from a game prediction model I trained on histori
 
 :::
 
+::: {.panel-tabset .nav-pills}
+
+### Playoff
+
 ```{r}
 #| message: false
 #| warning: false
@@ -143,99 +157,28 @@ The following predictions come from a game prediction model I trained on histori
 
 playoff_sims |>
   gt_playoff_probs(
-    ratings = playoff_ratings
+    ratings = pre_playoff_ratings
   ) |>
   gt::tab_header("2024 College Football Playoff Simulations",
                  subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 ```
 
-
-<!-- ## Bracket -->
-
-<!-- ```{r} -->
-<!-- #| fig-width: 10 -->
-<!-- #| column: body-outset-right -->
-<!-- playoff_sims |> -->
-<!--   summarize_wins_by_team() |> -->
-<!--   plot_bracket() -->
-
-<!-- ``` -->
-
-## Matchups
-
-What are the most likely matchups in the national championship?
+### Quarterfinal
 
 ```{r}
+#| message: false
+#| warning: false
 #| fig-width: 10
-#| fig-height: 8.5
+#| column: page
 
-playoff_sims |>
-  filter(round == 'championship') |>
-  plot_matchups()
-  #facet_wrap(paste("quarterfinal") ~.)
-
+quarterfinal_sims |>
+  gt_quarterfinal_probs(
+    ratings = pre_quarterfinal_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 ```
-
-<!-- ## Matchups -->
-
-<!-- What are the most likely matchups in each round? -->
-
-<!-- ```{r} -->
-
-<!-- playoff_sims |> -->
-<!--   filter(round == 'championship') |> -->
-<!--   plot_matchups() -->
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-<!-- #| fig-height: 8 -->
-<!-- #| fig-width: 10 -->
-<!-- playoff_sims |> -->
-<!--   summarize_wins_by_team() |> -->
-<!--   plot_bracket() -->
-
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-<!-- #| class: scroll -->
-
-<!-- playoff_sims |> -->
-<!--   nest(data = -.draw) |> -->
-<!--   sample_n(1) |> -->
-<!--   unnest(data) |> -->
-<!--   mutate( -->
-<!--     result = case_when(winner == home_team ~ paste(home_team, "by", .prediction), -->
-<!--                        winner == away_team ~ paste(away_team, "by", -.prediction)) -->
-<!--   ) |> -->
-<!--   select(.draw, round, home_team, away_team, winner, result) |> -->
-<!--   group_by(.draw = paste("sim:", .draw)) |> -->
-<!--   gt::gt() |> -->
-<!--   gtExtras::gt_theme_espn() |> -->
-<!--   add_gt_formatting() |> -->
-<!--   gt::cols_hide(columns = c("winner")) |> -->
-<!--   gt::cols_align(columns = c("result"), align = c("center")) |> -->
-<!--   gt::cols_label( -->
-<!--     home_team ~ "Home", -->
-<!--     away_team ~ "Away", -->
-<!--   ) |> -->
-<!--   gt::tab_style( -->
-<!--     style = cell_text(weight = "bold"), -->
-<!--     locations = cells_body( -->
-<!--       columns = c("home_team"), -->
-<!--       rows = home_team == winner -->
-<!--     ) -->
-<!--   ) |> -->
-<!--   gt::tab_style( -->
-<!--     style = cell_text(weight = "bold"), -->
-<!--     locations = cells_body( -->
-<!--       columns = c("away_team"), -->
-<!--       rows = away_team == winner -->
-<!--     ) -->
-<!--   ) -->
-
-<!-- ``` -->
+:::
 
 
 # Game Predictions

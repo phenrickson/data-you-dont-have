@@ -487,7 +487,8 @@ list(
     season_pbp_efficiency,
     season_pbp_preds |>
       prepare_efficiency(
-        games = season_game_info
+        games = season_game_info,
+        game_type = c("regular", "postseason")
       )
   ),
   tar_target(
@@ -548,7 +549,11 @@ list(
       bind_rows(
         efficiency_by_week
       ) |>
-      prepare_team_estimates()
+      prepare_team_estimates() |>
+      unnest(everything()) |>
+      group_by(season, season_type, week_date, team) |>
+      slice_tail(n = 1) |>
+      ungroup()
   ),
   tar_target(
     games_model,
@@ -602,23 +607,25 @@ list(
   # ),
   tar_target(
     playoff_teams,
-    c('Oregon', 
-      'Georgia', 
-      'Boise State', 
-      'Arizona State', 
-      'Texas', 
-      'Penn State', 
-      'Notre Dame', 
-      'Ohio State', 
-      'Tennessee', 
-      'Indiana', 
-      'SMU', 
+    c('Oregon',
+      'Georgia',
+      'Boise State',
+      'Arizona State',
+      'Texas',
+      'Penn State',
+      'Notre Dame',
+      'Ohio State',
+      'Tennessee',
+      'Indiana',
+      'SMU',
       'Clemson')
   ),
   tar_target(
-    current_team_estimates,
+    pre_playoff_estimates,
     season_team_estimates |>
-      slice_estimates()
+      filter(season_week == '2024_17') |>
+      slice_estimates(),
+    cue = tar_cue(mode = "never")
   ),
   tar_target(
     total_sims,
@@ -626,14 +633,40 @@ list(
   ),
   tar_target(
     playoff_sims,
-    map(
-      1:total_sims,
-      ~ simulate_playoff(
-        playoff_teams,
-        estimates = current_team_estimates,
-        model = games_model |> extract_fit_engine()
-      ) |>
-        mutate(.draw = .x)
-    ) |> list_rbind()
+    {
+      set.seed(1999)
+      map(
+        1:total_sims,
+        ~ simulate_playoff(
+          playoff_teams,
+          estimates = pre_playoff_estimates,
+          model = games_model |> extract_fit_engine()
+        ) |>
+          mutate(.draw = .x)
+      ) |> list_rbind()
+    }
+  ),
+  tar_target(
+    pre_quarterfinal_estimates,
+    season_team_estimates |>
+      filter(season_week == '2024_18') |>
+      slice_estimates(),
+    cue = tar_cue(mode = "never")
+  ),
+  tar_target(
+    quarterfinal_sims,
+    {
+      set.seed(1999)
+      map(
+        1:total_sims,
+        ~ simulate_playoff_after_round_1(
+          playoff_teams,
+          estimates = pre_quarterfinal_estimates,
+          model = games_model |> extract_fit_engine(),
+          round_1_teams = c("Ohio State", "Texas", "Notre Dame", "Penn State")
+        ) |>
+          mutate(.draw = .x)
+      ) |> list_rbind()
+    }
   )
 )
