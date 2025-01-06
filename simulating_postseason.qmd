@@ -9,6 +9,7 @@ format:
     echo: false
     warning: false
     number-sections: false
+    fig-format: svg
 params:
     season: 2024
     week: 16
@@ -177,56 +178,8 @@ quarterfinal_sims |>
   gt::tab_header("2024 College Football Playoff Simulations",
                  subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 ```
-
-
 :::
 
-<!-- ## Bracket -->
-
-<!-- ```{r} -->
-<!-- #| fig-width: 10 -->
-<!-- #| column: body-outset-right -->
-<!-- playoff_sims |> -->
-<!--   summarize_wins_by_team() |> -->
-<!--   plot_bracket() -->
-
-<!-- ``` -->
-
-<!-- ## Matchups -->
-
-<!-- What are the most likely matchups in the championship? -->
-
-<!-- ::: {.panel-tabset .nav-pills} -->
-
-<!-- ### Playoff -->
-
-<!-- ```{r} -->
-<!-- #| fig-width: 10 -->
-<!-- #| fig-height: 8.5 -->
-
-<!-- playoff_sims |> -->
-<!--   filter(round == 'championship') |> -->
-<!--   plot_matchups() + -->
-<!--   facet_wrap(paste("championship") ~ .)+ -->
-<!--   theme(axis.text.y = element_text(size = 8)) -->
-
-<!-- ``` -->
-
-<!-- ### Quarterfinals -->
-
-<!-- ```{r} -->
-<!-- #| fig-width: 10 -->
-<!-- #| fig-height: 8.5 -->
-
-<!-- quarterfinal_sims |> -->
-<!--   filter(round == 'championship') |> -->
-<!--   plot_matchups() + -->
-<!--   facet_wrap(paste("championship") ~ .)+ -->
-<!--   theme(axis.text.y = element_text(size = 8)) -->
-
-<!-- ``` -->
-
-<!-- ::: -->
 
 # Game Predictions
 
