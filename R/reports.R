@@ -723,3 +723,36 @@ assess_spread_tbl = function(data) {
     )
 
 }
+
+plot_game_sims <- function(data) {
+  data |>
+    group_by(game_id) |>
+    mutate(
+      pred = round_any(mean(.prediction), .5),
+      pred_team = case_when(
+        pred > 0 ~ home_team,
+        pred == 0 ~ "toss up",
+        pred < 0 ~ away_team
+      )
+    ) |>
+    mutate(game_label = paste(
+      paste(home_team, away_team, sep = " vs "), "\n",
+      paste(unique(pred_team), unique(abs(pred)), sep = " by ")
+    )) |>
+    mutate(win_color = case_when(
+      .prediction > 0 ~ home_team,
+      .prediction < 0 ~ away_team
+    )) |>
+    ggplot(aes(x = .prediction)) +
+    geom_histogram(aes(fill = win_color), bins = 80) +
+    cfbplotR::scale_fill_cfb(alt_colors = "USC") +
+    cfbplotR::scale_color_cfb(alt_colors = "USC") +
+    geom_vline(aes(xintercept = pred),
+      linetype = "dashed",
+      color = "grey80"
+    ) +
+    coord_cartesian(xlim = c(-75, 75)) +
+    xlab("Home Team Margin of Victory") +
+    ylab("Simulations") +
+    geom_vline(aes(xintercept = home_margin), linetype = "dashed")
+}

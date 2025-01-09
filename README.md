@@ -1,3 +1,3 @@
-# guidepost_2024
+# data-you-don't-have
 
-slides for 'The Data You Don't Have'
+slides and source code for presentation 'The Data You Don't Have'
