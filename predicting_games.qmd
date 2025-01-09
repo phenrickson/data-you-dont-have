@@ -10,7 +10,7 @@ format:
     number-sections: false
 params:
     season: 2024
-    week: 10
+    week: 16
 ---
 
 ```{r}
@@ -19,6 +19,7 @@ params:
 library(targets)
 library(dplyr)
 library(tidyr)
+library(purrr)
 library(ggplot2)
 library(quarto)
 library(gt)
@@ -44,13 +45,18 @@ sims <- tar_read("games_sims")
 #| message: false
 # request game info from collegefootballdata
 game_info <-
-  cfbfastR::cfbd_game_info(params$season) |>
+  cfbfastR::cfbd_game_info(params$season, season_type = "both") |>
   as_tibble() |>
   adjust_team_names()
 
 # betting lines
 betting_lines <-
-  cfbfastR::cfbd_betting_lines(year = params$season) |>
+  map(
+    c("regular", "postseason"),
+    ~ cfbfastR::cfbd_betting_lines(year = params$season,
+                                   season_type = .x)
+  ) |>
+  list_rbind() |>
   as_tibble()
 
 # prepare predictions
@@ -79,7 +85,7 @@ game_predictions_and_betting_lines =
 
 ```{r}
 add_gt_formatting = function(tbl, ...) {
-  
+
   tbl |>
     gt::opt_row_striping(row_striping = F) |>
     gt::tab_options(table.font.size = 14,
@@ -87,7 +93,7 @@ add_gt_formatting = function(tbl, ...) {
 }
 
 prepare_spread_predictions = function(data) {
-  
+
   data |>
     mutate(
       my_prediction = case_when(
@@ -122,7 +128,7 @@ prepare_spread_predictions = function(data) {
 }
 
 gt_pred_color = function(tbl, columns, target_columns) {
-  
+
   tbl |>
     gt::data_color(
       columns = columns,
@@ -133,11 +139,11 @@ gt_pred_color = function(tbl, columns, target_columns) {
       direction = "column",
       na_color = "white"
     )
-  
+
 }
 
 spread_predictions_tbl = function(data) {
-  
+
   data |>
     gt_tbl() |>
     gt::cols_align(
@@ -195,24 +201,25 @@ spread_predictions_tbl = function(data) {
     )
 }
 
-plot_vs_betting_lines = function(data) {
-  
+plot_vs_betting_lines = function(data, lim = 60) {
+
   data |>
     ggplot(aes(x = -pred_margin, y = spread, label = paste(home_team, away_team, sep = " vs "))) +
-    geom_point() +
+    geom_point(alpha = 0.5) +
     geom_text(vjust = -1, size = 1.5, check_overlap = T) +
     geom_abline() +
     theme_cfb() +
     xlab("Estimated Spread") +
     ylab("Vegas Spread") +
     ggpubr::stat_cor(aes(label = ..r.label..)) +
-    facet_wrap(paste(season, paste("Week", week)) ~ .)+
-    coord_cartesian(xlim = c(-50, 50),
-                    ylim = c(-50, 50))
+    facet_wrap(week ~ .) +
+    #facet_wrap(paste(season, paste("Week", week)) ~ .)+
+    coord_cartesian(xlim = c(-lim, lim),
+                    ylim = c(-lim, lim))
 }
 
 betting_lines_tbl = function(data) {
-  
+
   data |>
     gt_tbl() |>
     gt::cols_align(
@@ -289,7 +296,6 @@ How do these predictions compare to betting lines? I compare my predicted spread
 #| fig-width: 7.5
 game_predictions_and_betting_lines |>
   filter(provider == 'ESPN Bet') |>
-  filter(week == params$week) |>
   plot_vs_betting_lines()+
   labs(y = 'ESPN Bet Spread')
 
@@ -340,7 +346,7 @@ The following plot shows my model's predicted margin of victory vs the actual ma
 
 ```{r}
 plot_games_margins = function(data) {
-  
+
   data |>
     ggplot(
       aes(
@@ -362,7 +368,7 @@ plot_games_margins = function(data) {
     xlab("Predicted Home Margin")+
     ylab("Actual Home Margin")+
     guides(color = 'none')
-  
+
 }
 
 results_plot  =
@@ -430,7 +436,7 @@ Early versions of this report used the *opening* betting line from providers; I 
 ```{r}
 
 add_spread_cover = function(data) {
-  
+
   data |>
     mutate(
       pred_cover = case_when(
@@ -459,8 +465,8 @@ spread_predictions =
   add_spread_cover()
 
 assess_spread = function(data, groups = c("season", "provider", "week")) {
-  
-  
+
+
   accuracy =
     data |>
     group_by(across(any_of(groups))) |>
@@ -470,8 +476,8 @@ assess_spread = function(data, groups = c("season", "provider", "week")) {
       actual_cover,
       pred_cover
     )
-  
-  record = 
+
+  record =
     data |>
     mutate(correct = case_when(pred_cover == actual_cover ~ 'yes',
                                pred_cover != actual_cover ~ 'no')) |>
@@ -486,24 +492,24 @@ assess_spread = function(data, groups = c("season", "provider", "week")) {
     mutate(across(c("yes", "no"), ~ replace_na(.x, 0))) |>
     mutate(record = paste(yes, no, sep = "-")) |>
     select(any_of(groups), record)
-  
+
   accuracy |>
     inner_join(record)
-  
+
 }
 
 assess_spread_overall= function(data) {
-  
-  
-  week = 
+
+
+  week =
     data |>
     assess_spread(groups = c("season", "provider", "week"))
-  
-  season = 
+
+  season =
     data |>
     assess_spread(groups = c("season", "provider")) |>
     mutate(week = 'overall')
-  
+
   bind_rows(
     week |>
       mutate(week = as.character(week)),
@@ -512,7 +518,7 @@ assess_spread_overall= function(data) {
 }
 
 assess_spread_tbl = function(data) {
-  
+
   data |>
     select(season, provider, week, .estimate, record) |>
     pivot_wider(
@@ -540,7 +546,7 @@ assess_spread_tbl = function(data) {
       .estimate_Bovada = "Bovada",
       .estimate_DraftKings = 'DraftKings',
       `.estimate_ESPN Bet` = 'ESPN Bet'
-    ) 
+    )
 
 }
 
@@ -572,6 +578,7 @@ The following table displays predictions for all upcoming games based on the res
 game_predictions |>
   prepare_game_predictions() |>
   filter(is.na(actual)) |>
+  filter(week >= params$week) |>
   group_by(week) |>
   arrange(desc(week), desc(game_interest)) |>
   ungroup() |>

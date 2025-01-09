@@ -10,7 +10,7 @@ format:
     number-sections: false
 params:
     season: 2024
-    week: 10
+    week: 21
 ---
 
 ```{r}
@@ -27,11 +27,12 @@ library(yardstick)
 library(patchwork)
 library(cfbplotR)
 
+# set params
 # src code
 tar_source("R")
 
 add_gt_formatting = function(tbl, ...) {
-  
+
   tbl |>
     gt::opt_row_striping(row_striping = F) |>
     gt::tab_options(table.font.size = 14,
@@ -41,34 +42,38 @@ add_gt_formatting = function(tbl, ...) {
 ```
 
 ```{r}
-
 team_info <- cfbfastR::cfbd_team_info(year = params$season)
 team_estimates <- tar_read("season_team_estimates")
 team_scores <- tar_read("team_scores")
-team_category_estimates = tar_read("season_team_category_estimates")
+team_category_estimates <- tar_read("season_team_category_estimates")
 
-join_team_info = function(data, teams = team_info) {
-  
+join_team_info <- function(data, teams = team_info) {
   data |>
     inner_join(
       teams |>
         adjust_team_names(cols = "school") |>
-        select(team = school,
-               conference,
-               abbreviation),
+        select(
+          team = school,
+          conference,
+          abbreviation
+        ),
       by = join_by(team)
     )
 }
 
-current_scores =
+current_scores <-
   team_scores |>
   filter(season == params$season) |>
+  add_season_week() |>
   group_by(team) |>
-  arrange(season_week) |>
+  arrange(season, week) |>
+  group_by(team, season, week) |>
+  slice_head(n = 1) |>
+  ungroup() |>
+  group_by(team) |>
   mutate(diff = round(score - dplyr::lag(score, 1), 2)) |>
   ungroup() |>
-  filter(season_week == max(season_week)) |>
-  add_season_week() |>
+  filter(week == max(week)) |>
   arrange(desc(season_week), desc(score)) |>
   mutate(rank = rank(-score)) |>
   select(season, week, rank, team, everything()) |>
@@ -78,7 +83,7 @@ current_scores =
 
 # Rankings
 
-The following table displays my current rankings going into Week **{{< meta params.week >}}** based on opponent adjusted estimates of team efficiency to date.
+The following table displays my current rankings going into **Week {{< meta params.week >}}** based on opponent adjusted estimates of team efficiency to date.
 
 ::: {.callout-note collapse="false"}
 ## About the Table
@@ -93,7 +98,7 @@ The following table displays my current rankings going into Week **{{< meta para
 ```{r}
 #| column: body-outset-right
 team_scores_tbl = function(data) {
-  
+
   data |>
     mutate(logo = team) |>
     select(season, season_type, season_week, week, rank, logo, team, score, diff, offense, defense, special) |>
@@ -160,7 +165,7 @@ team_scores_tbl = function(data) {
       columns = c("offense", "defense"),
       label = "Efficiency"
     )
-  
+
 }
 
 current_scores |>
@@ -174,7 +179,7 @@ How has the top 25 changed over the course of the season?
 
 ```{r}
 team_rankings_tile = function(data, season = params$season) {
-  
+
   data |>
     join_team_info() |>
     filter(season == params$season) |>
@@ -206,7 +211,7 @@ team_rankings_tile = function(data, season = params$season) {
     labs(title = paste(season, "Team Rankings by Week"),
          subtitle = stringr::str_wrap("Team rankings based on expected margin of victory against average FBS opponent, estimated from opponent adjusted predicted points per play.", 100)
     )
-  
+
 }
 
 team_scores |>
@@ -222,17 +227,17 @@ team_scores |>
 #| warning: false
 #| message: false
 
-plot_team_scores_by_conference = function(data, conference = 'Big Ten', lines = c(0)) {
-  
+plot_team_scores_by_conference = function(data, conference = 'Big Ten', span = 0.5, lines = c(0)) {
+
   plot_team_lines = function(data, ylim = c(-30, 30)) {
-    
+
     data |>
       add_season_week() |>
       ggplot(aes(x=week,
                  y=score,
                  color = team,
                  label = abbreviation))+
-      geom_line(stat = 'smooth', method = 'loess', formula = 'y ~ x')+
+      geom_line(stat = 'smooth', method = 'loess', formula = 'y ~ x', span = span)+
       cfbplotR::scale_color_cfb()+
       theme_cfb()+
       # coord_cartesian(ylim = ylim)+
@@ -243,11 +248,11 @@ plot_team_scores_by_conference = function(data, conference = 'Big Ten', lines = 
         #ylim = c(-33, 33),
         xlim = c(-1, 20)
       )
-    
+
   }
-  
+
   label_team = function(data, var, size = 3, nudge_x = 1.2) {
-    
+
     ggrepel::geom_text_repel(
       aes(label = {{var}}),
       fontface = "bold",
@@ -261,10 +266,10 @@ plot_team_scores_by_conference = function(data, conference = 'Big Ten', lines = 
       segment.ncp = 3,
       segment.angle = 20,
       segment.size = 0.5
-      
+
     )
   }
-  
+
   data |>
     filter(season == params$season) |>
     join_team_info() |>
@@ -283,12 +288,12 @@ plot_team_scores_by_conference = function(data, conference = 'Big Ten', lines = 
     facet_wrap(conference ~.)
 }
 
-conferences = 
-  team_info |> 
+conferences =
+  team_info |>
   distinct(conference) |>
   pull()
 
-conference_plots = 
+conference_plots =
   purrr::map(conferences,
              ~ plot_team_scores_by_conference(team_scores, conference = .x)
   )
@@ -374,7 +379,7 @@ conference_plots$`Mid-American`
 
 # Efficiency
 
-My team measures are based around the concept of efficiency, how a team performs on average on a play by play basis. I measure this by estimating a team's expected points added per play on offense and defense, adjusted for opponent strength. 
+My team measures are based around the concept of efficiency, how a team performs on average on a play by play basis. I measure this by estimating a team's expected points added per play on offense and defense, adjusted for opponent strength.
 
 ## Offense/Defense
 
@@ -385,8 +390,8 @@ The following plot displays all FBS teams based on their estimated offensive/def
 current_scores =
   team_scores |>
   filter(season == params$season) |>
-  filter(season_week == max(season_week)) |>
   add_season_week() |>
+  filter(week == max(week)) |>
   arrange(desc(season_week), desc(score)) |>
   mutate(rank = rank(-score)) |>
   select(season, week, rank, team, everything()) |>
@@ -397,14 +402,14 @@ current_scores =
              conference,
              abbreviation),
     by = join_by(team)
-  ) 
+  )
 
 ```
 
 ```{r}
 
 plot_team_scores = function(data, season = params$season) {
-  
+
   data |>
     ggplot(aes(x=offense,
                y=defense,
@@ -423,7 +428,7 @@ plot_team_scores = function(data, season = params$season) {
     xlab("Offensive Points Added per Play")+
     ylab("Defensive Points Added per Play")+
     labs(title = paste(season, "Team Efficiency"),
-         subtitle = stringr::str_wrap("Offensive and defensive efficiency estimates bbased on opponent adjusted predicted points per play.", 90)
+         subtitle = stringr::str_wrap("Offensive and defensive efficiency estimates based on opponent adjusted predicted points per play.", 90)
     )+
     annotate(
       geom = "label",
@@ -457,7 +462,7 @@ plot_team_scores = function(data, season = params$season) {
       alpha = 0.8,
       label = "Bad Offense\nBad Defense"
     )
-  
+
 }
 
 current_scores |>
@@ -475,12 +480,16 @@ The following table displays all FBS teams based on their estimated efficiency f
 #| column: body-outset-right
 team_category_estimates |>
   prepare_team_category_estimates() |>
+  unnest(everything()) |>
+  add_season_week() |>
+  group_by(season, week, team) |>
+  slice_tail(n = 1) |>
+  ungroup() |>
   filter(season == params$season) |>
-  filter(season_week == max(season_week)) |>
+  filter(week == max(week)) |>
+  arrange() |>
+  arrange(desc(estimate_rush_offense)) |>
   team_category_estimates_tbl() |>
   add_gt_formatting()
 
 ```
-
-
-
