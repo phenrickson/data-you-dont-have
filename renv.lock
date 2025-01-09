@@ -493,7 +493,6 @@
       "RemoteHost": "api.github.com",
       "RemoteRepo": "cfbfastR",
       "RemoteUsername": "sportsdataverse",
-      "RemoteRef": "HEAD",
       "RemoteSha": "55b2bb912134d7b56ece5578378e98c0f6872806",
       "Requirements": [
         "R",
@@ -517,7 +516,7 @@
         "tibble",
         "tidyr"
       ],
-      "Hash": "717f6d822949c19ad4980a450d0f66ee"
+      "Hash": "28f1f389ee56d9cfbd7cd548658656fc"
     },
     "cfbplotR": {
       "Package": "cfbplotR",
