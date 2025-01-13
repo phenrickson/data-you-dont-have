@@ -178,6 +178,7 @@ current_scores |>
 How has the top 25 changed over the course of the season?
 
 ```{r}
+
 team_rankings_tile = function(data, season = params$season) {
 
   data |>
@@ -200,7 +201,7 @@ team_rankings_tile = function(data, season = params$season) {
     geom_text(color = 'white', size = 2)+
     cfbplotR::scale_color_cfb()+
     cfbplotR::scale_fill_cfb()+
-    coord_cartesian(xlim = c(1, 20))+
+    coord_cartesian(xlim = c(1, 21))+
     theme_cfb()+
     scale_x_continuous(n.breaks = 20)+
     theme(panel.grid = element_blank(),
@@ -246,7 +247,7 @@ plot_team_scores_by_conference = function(data, conference = 'Big Ten', span = 0
       geom_hline(yintercept = lines, linetype = 'dashed')+
       coord_cartesian(
         #ylim = c(-33, 33),
-        xlim = c(-1, 20)
+        xlim = c(-1, 22)
       )
 
   }
@@ -308,39 +309,30 @@ How have team scores changed during the season? The following plots display esti
 ### SEC
 
 ```{r}
-#| warning: false
-#| message: false
 conference_plots$SEC
 ```
 
 ### Big Ten
 
 ```{r}
-#| warning: false
-#| message: false
 conference_plots$`Big Ten`
 ```
 
 ### Big 12
 
 ```{r}
-#| warning: false
-#| message: false
 conference_plots$`Big 12`
 ```
 
 ### ACC
 
 ```{r}
-#| warning: false
-#| message: false
 conference_plots$ACC
 ```
 
 ### Mountain West
 
 ```{r}
-
 conference_plots$`Mountain West`
 
 ```
@@ -348,16 +340,12 @@ conference_plots$`Mountain West`
 ### American Athletic
 
 ```{r}
-#| warning: false
-#| message: false
 conference_plots$`American Athletic`
 ```
 
 ### Conference USA
 
 ```{r}
-#| warning: false
-#| message: false
 conference_plots$`Conference USA`
 
 ```
@@ -371,7 +359,6 @@ conference_plots$`Sun Belt`
 ### MAC
 
 ```{r}
-
 conference_plots$`Mid-American`
 
 ```
@@ -407,7 +394,6 @@ current_scores =
 ```
 
 ```{r}
-
 plot_team_scores = function(data, season = params$season) {
 
   data |>
