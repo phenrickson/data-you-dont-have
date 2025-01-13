@@ -1,0 +1,240 @@
+---
+title: "College Football Postseason Predictions"
+subtitle: "Bowl Game and Playoff Simulations"
+editor: source
+format:
+  html:
+    html-table-processing: none
+    message: false
+    echo: false
+    warning: false
+    number-sections: false
+    fig-format: svg
+params:
+    season: 2024
+    week: 16
+---
+
+```{r}
+#| include: false
+
+library(targets)
+library(dplyr)
+library(tidymodels)
+library(gt)
+library(cowplot)
+library(furrr)
+library(purrr)
+
+# # set plan
+# plan(multisession, workers = 6)
+
+# src
+targets::tar_source("R")
+
+theme_set(theme_cfb() + theme(panel.grid.major = element_blank()))
+
+```
+
+```{r}
+#| label: targets
+
+# load in objects
+team_estimates = tar_read("season_team_estimates")
+team_scores = tar_read("team_scores")
+games_model = tar_read("games_model")
+model = games_model |> extract_fit_engine()
+
+# active estimates
+tar_load(pre_playoff_estimates)
+tar_load(pre_quarterfinal_estimates)
+tar_load(pre_semifinal_estimates)
+
+# regular season predictions
+regular_season_predictions = 
+  tar_read("games_sims") |>
+  filter(season_type == 'regular')
+
+# game predictions
+game_sims = tar_read("games_sims")
+
+# playoff teams
+tar_load(playoff_teams)
+
+# playoff sims
+tar_load(playoff_sims)
+
+# quaterfinal sims
+tar_load(quarterfinal_sims)
+
+tar_load(semifinal_sims)
+
+```
+
+```{r}
+#| label: cfbd calls
+# retrieve up to date games and betting lines
+# get game info
+game_info <-
+  load_games(year = params$season, season_type = 'both')
+
+playoff_games = 
+  game_info |>
+  filter(grepl("College Football Playoff", notes))
+
+# # get betting lines
+# betting_lines <-
+#   load_betting_lines(year = params$season)
+
+```
+
+```{r}
+#| label: game predictions
+#| messgae: false
+#| warning: false
+
+# get game predictions
+game_predictions =
+  game_sims |>
+  add_game_info(game_info = game_info) |>
+  add_team_scores(teams_data = team_scores,
+                  current_season = params$season,
+                  current_week = params$week) |>
+  prepare_game_predictions() |>
+  arrange(desc(game_interest))
+
+postseason_predictions = 
+  game_predictions |>
+  filter(season_type == 'postseason')
+
+```
+
+```{r}
+#| label: set playoff teams and get their ratings
+#| message: false
+#| warning: false
+
+# table of playoff team ratings
+pre_playoff_ratings = 
+  pre_playoff_estimates |>
+  select(season, team, score = overall, offense, defense, special)
+
+# table of playoff team ratings prior to quarterfinal
+pre_quarterfinal_ratings = 
+  pre_quarterfinal_estimates |>
+  select(season, team, score = overall, offense, defense, special)
+
+# table of playoff team ratings prior to semifinal
+pre_semifinal_ratings = 
+  pre_semifinal_estimates |>
+  select(season, team, score = overall, offense, defense, special)
+
+```
+
+# Playoff Simulations
+
+The following predictions come from a game prediction model I trained on historical college football games. The inputs into the game prediction model are team level measures of offensive/defensive/special teams efficiency, which I estimate from play by play data. I simulate each game thousands of times in order to estimate the home team's win probability and expected margin of victory (or defeat).
+
+::: {.callout-note collapse="false"}
+
+## About the Table
+
+**Team Ratings** refer to the team's estimated efficiency on offense and defense in terms of expected points added per play, adjusted for opponent quality.
+
+**Win Probabilities** refer to the proportion of simulations in which the team won their matchup in each round. 
+
+:::
+
+::: {.panel-tabset .nav-pills}
+
+### Playoff
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+playoff_sims |>
+  gt_playoff_probs(
+    ratings = pre_playoff_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+```
+
+### Quarterfinal
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+quarterfinal_sims |>
+  gt_quarterfinal_probs(
+    ratings = pre_quarterfinal_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+```
+
+### Semifinal
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+semifinal_sims |>
+  gt_semifinal_probs(
+    ratings = pre_semifinal_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+```
+
+:::
+
+
+# Game Predictions
+
+::: {.callout-note collapse="false"}
+
+## About the Table
+
+**Quality** indicates the quality of the teams involved in the game. This is the (harmonic) mean of the two team’s power ratings and is scaled to range from 0 to 100, with 100 indicating a game between highly rated opponents.
+
+**Interest** indicates how interesting a game is expected to be based on the quality of the teams and how competitive the game is expected to be. I assign every game a competitive rating using a quadratic formula applied to Pr(HomeWin), which I use along with Quality in a weighted average to produce the Interest score. This ranges from 0 to 100, where 100 indicates a very competitive game between two highly rated opponents.
+
+**Pr(HomeWin)** is the percentage of times that the home team won the game across every simulation.
+
+**Prediction** is the average margin of victory for the winning team across all simulations.
+
+:::
+
+```{r}
+#| label: playoff games table
+#| column: body-outset-right
+
+postseason_predictions |>
+  left_join(
+    playoff_games |>
+      mutate(playoff = T) |>
+      select(game_id, playoff),
+    by = c("game_id")
+  ) |>
+  arrange(playoff) |>
+  game_predictions_tbl() |>
+  add_gt_formatting() |>
+  gt::cols_hide(columns = 'playoff') |>
+  gt::tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = everything(),
+      rows = playoff == T
+    )
+  )
+
+```

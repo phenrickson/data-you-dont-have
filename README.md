@@ -1,3 +1,3 @@
-# cfb_models
+# data-you-don't-have
 
-reworking college football models to date via `cfbfastR` package
+slides and source code for presentation 'The Data You Don't Have'
