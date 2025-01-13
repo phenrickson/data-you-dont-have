@@ -207,7 +207,7 @@ semifinal_sims |>
 
 championship_sims |>
   gt_championship_probs(
-    ratings = pre_semifinal_ratings
+    ratings = pre_championship_ratings
   ) |>
   gt::tab_header("2024 College Football Playoff Simulations",
                  subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
