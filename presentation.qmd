@@ -9,26 +9,38 @@ css: styles.css
 editor: source
 execute:
   cache: true
-  freeze: true
+  freeze: auto
 ---
 
 
 ```{r}
 #| include: false
 #| label: packages
+#| 
 library(targets)
 library(dplyr)
 library(tidyr)
+library(readr)
 library(ggplot2)
+library(tidymodels)
 library(quarto)
+library(gtExtras)
+library(patchwork)
+library(ggridges)
+library(ggh4x)
 library(gt)
 library(gtExtras)
-library(yardstick)
-library(patchwork)
-library(purrr)
 
 # src code
 tar_source("R")
+
+theme_set(
+  theme_light()+
+    theme(
+      legend.position = 'top',
+      panel.grid.minor = element_blank()
+    )
+)
 
 ```
 
@@ -57,15 +69,38 @@ team_info = cfbfastR::cfbd_team_info(only_fbs = T) |> as_tibble()
 
 # espn fpi
 espn_fpi =
-  map(c(2011:2023),
+  map(c(2011:2024),
       ~ cfbfastR::espn_ratings_fpi(year = .x)
   ) |>
   list_rbind()
 
 # get betting lines
-betting_lines <-
-  cfbfastR::cfbd_betting_lines(year = 2024) |>
-  as_tibble()
+betting_lines =
+  load_betting_lines(year = 2024)
+
+# game info
+game_info =
+  load_games(year = 2024)
+
+# predictions for games
+game_predictions <-
+  sims |>
+  join_team_divisions(games = game_info) |>
+  prepare_fcs_teams() |>
+  left_join(
+    game_info |>
+      add_game_outcomes() |>
+      select(game_id, start_date, week, home_points, away_points, home_margin, home_win, total_points, completed)
+  ) |>
+  arrange(start_date)
+
+# add betting lines
+game_predictions_and_betting_lines = 
+  game_predictions |>
+  join_betting_lines(betting = betting_lines |>
+                       mutate(spread = case_when(!is.na(spread_open) ~ spread_open,
+                                                 TRUE ~ spread))
+  )
 
 # join sims with betting lines
 sims_and_betting_lines =
@@ -73,12 +108,97 @@ sims_and_betting_lines =
   join_betting_lines(betting = betting_lines)
 ```
 
+```{r}
+#| include: false
+#| label: playoff sims
+
+source("R/reports.R")
+tar_load(playoff_teams)
+
+# postseason
+postseason_predictions = 
+  game_predictions |>
+  filter(season_type == 'postseason')
+
+# sims
+tar_load(playoff_sims)
+tar_load(quarterfinal_sims)
+tar_load(semifinal_sims)
+tar_load(championship_sims)
+
+# estimates frozen from before each week
+tar_load(pre_playoff_estimates)
+tar_load(pre_quarterfinal_estimates)
+tar_load(pre_semifinal_estimates)
+tar_load(pre_championship_estimates)
+
+# table of playoff team ratings
+pre_playoff_ratings = 
+  pre_playoff_estimates |>
+  select(season, team, score = overall, offense, defense, special)
+
+pre_quarterfinal_ratings = 
+  pre_quarterfinal_estimates |>
+  select(season, team, score = overall, offense, defense, special)
+
+pre_semifinal_ratings = 
+  pre_semifinal_estimates |>
+  select(season, team, score = overall, offense, defense, special)
+
+pre_championship_ratings = 
+  pre_championship_estimates |>
+  select(season, team, score = overall, offense, defense, special)
+
+```
+
+
 
 ```{r}
 #| include: false
 #| label: framingham
 
+source("R/framingham.R")
+
+plot_ridge_chd = function(data, ...) {
+  
+  data |>
+    plot_ridge() +
+    labs(y = "density") +
+    scale_color_framingham()
+}
+
+# custom color scale
+scale_color_framingham <- function(values = c("deepskyblue1", "red")) {
+  list(
+    scale_fill_manual(values = values),
+    scale_color_manual(values = values)
+  )
+}
+
+# load in data
+chd_data = 
+  load_data() |>
+  prepare_data() |>
+  filter(prev_chd == 0) |>
+  add_ten_year_status(var = "chd")
+
+# sample data for table
+set.seed(9)
+chd_samp = 
+  chd_data |>
+  mutate(id = as.character(randid)) |>
+  select(id, sex, totchol, age, sysbp, diabp, smoker = cursmoke, bmi, heartrte, glucose, ten_year_chd) |>
+  sample_n(50)
+
+# fit models by sex and period
+chd_results = 
+  chd_data |>
+  nest(data = -c(period, sex)) |>
+  mutate(fit = map(data, fit_model)) |>
+  mutate(tidied =  map(fit, tidy, robust = T, conf.int = T))
+
 ```
+
 
 # Background
 
@@ -214,7 +334,7 @@ Prevention and treatment were so poorly understood that most Americans accepted 
 
 ---
 
-To illustrate:
+For example:
 
 . . .
 
@@ -350,21 +470,196 @@ They cast a pretty wide net in collecting data on individuals.
 
 ---
 
-What did they find?
+I requested the (anonymized) data from the Framingham study for the purpose of this talk.
 
 . . .
 
-The first major findings were published in 1957, almost a decade after the initial participant was examined.
-
-. . .
-
-## Findings
-
-
+This is a portion of the clinical data they collected on individuals from 1956 to 1968, who were then monitored for the next 24 years for various heart diseases.
 
 ---
 
+```{r}
+#| warning: false
+#| message: false
+
+gt_framingham =
+  chd_samp |>
+  gt() |>
+  gt::cols_align(align = c("center")) |>
+  gt::fmt_missing() |>
+  gt::cols_hide("id") |>
+  gtExtras::gt_theme_espn() |>
+  gtExtras::gt_theme_nytimes()
+
+gt_framingham
+
+```
+
+---
+
+The goal of the study was to identify how individual **health features** relate to an **outcome**, future onset of heart disease.
+
+---
+
+```{r}
+
+gt_framingham
+
+```
+
+```{r}
+#| warning: false
+#| message: false
+
+gt_framingham_features =
+  gt_framingham |>
+  gt::data_color(columns = -c("ten_year_chd", "id"), direction = "column", palette = "Greys", na_color = "white")
+
+gt_framingham_features
+
+```
+
+---
+
+```{r}
+#| warning: false
+#| message: false
+
+gt_framingham_features |>
+  gt::data_color(columns = c("ten_year_chd"), palette = "Reds")
+
+```
+
+---
+
+What is the relationship between *age*, *blood pressure*, *resting heart rate* and the onset of future heart disease?
+
+. . .
+
+Just by looking at the data, you can start to spot features that are predictive of future heart disease. 
+
+---
+
+Notably, and as we would probably expect, *age*. 
+
+```{r}
+#| message: false
+chd_data |>
+  filter(period == 1) |>
+  select(ten_year_chd, sex, age) |>
+  plot_ridge_chd()
+
+```
+
+---
+
+And the effect of `age` is slightly different for men and women, with men showing higher risk of heart disease at younger ages.
+
+```{r}
+#| message: false
+chd_data |>
+  filter(period == 1) |>
+  select(ten_year_chd, sex, age) |>
+  plot_ridge_chd() +
+  scale_color_framingham() +
+  facet_grid2(sex ~., scales = "free", independent = "all")+
+  xlab("age")
+
+```
+
+---
+
+But the most striking observations comes from looking at *systolic blood pressure*.
+
+```{r}
+#| message: false
+chd_data |>
+  filter(period == 1) |>
+  select(ten_year_chd, sex, sysbp) |>
+  plot_ridge_chd() +
+  scale_color_framingham() +
+  facet_grid2(sex ~ ., scales = "free", independent = "all")+
+  xlab("systolic blood pressure")
+
+```
+
+---
+
+What is the relationship between *age*, *blood pressure*, *resting heart rate* and the onset of future heart disease?
+
+. . .
+
+This is the purpose of a **model**, which we fit to the data to **estimate the effect** of these features on our outcome.
+
+---
+
+```{r}
+
+chd_results |>
+  filter(period == 3) |>
+  unnest(tidied) |>
+  plot_coef(color_var = 'sex', size = 0.25)+
+  theme(legend.title = element_blank())
+```
+
+And we end up finding that *age*, *systolic blood pressure*, *hdlc*, and *smoking* impact an individual's future risk of heart disease.
+
+---
+
+```{r}
+#| message: false
+#| warning: false
+chd_results |>
+  filter(period == 1) |>
+  plot_effects(var = 'age') +
+  facet_wrap(sex  ~., scales = "free_x")
+
+```
+---
+
+```{r}
+#| message: false
+#| warning: false
+
+chd_results |>
+  filter(period == 1) |>
+  plot_effects(var = 'sysbp') +
+  facet_wrap(sex  ~., scales = "free_x")
+
+```
+
+---
+
+This is what the researchers found in the original Framingham study.
+
+. . .
+
+The first major findings from the original cohort were published in 1957, almost a decade after the initial participant was examined.
+
+. . .
+
 They found a nearly 4 fold increase in coronary heart disease incidence per 1000 persons among hypertensive participants (≥160/95 mmHg).
+
+---
+
+If you were wondering what this model would have predicted for FDR based on his blood pressure.
+
+```{r}
+#| message: false
+#| warning: false
+fdr_prob =
+  chd_results |>
+  filter(period == 1, sex == 'male') |>
+  plot_effects(var = 'sysbp') +
+  facet_wrap(sex  ~., scales = "free_x")
+
+fdr_prob +
+  geom_point(data = tibble(sysbp = 300, .pred = .95))+
+  annotate(x = 280, y = .7, geom = "text", label = "FDR's risk in 1945")+
+  geom_segment(aes(x = 290, y = .81, xend = 299, yend =.93),
+               arrow = arrow(length = unit(0.25, "cm")))
+
+```
 
 ---
 
@@ -374,7 +669,15 @@ Much of what we know about the causes of heart disease (exercise, diet, smoking)
 
 These findings form the basis of the **Framingham Risk Score**, a simple model for estimating long term risk of cardiovascular disease that is used to this day.
 
-. . .
+---
+
+##  {background-image="images/framingham_risk_score.png" background-position="center" background-color="white" background-size="contain"}
+
+---
+
+Much of what we know about the causes of heart disease (exercise, diet, smoking) was found in the years to come in the more than 3000 papers published using data from the Framingham Heart Study.
+
+These findings form the basis of the **Framingham Risk Score**, a simple model for estimating long term risk of cardiovascular disease that is used to this day.
 
 The Framingham study continues; it is now on its **third generation of residents**, examining the effects of family history and genetics.
 
@@ -399,7 +702,7 @@ The methods we use to understand something **as simple as heart disease** are th
 
 ---
 
-![](images/uw_nw_preview.png){fig-align="center"}
+![](images/playoff_nc_preview.png){fig-align="center"}
 
 ---
 
@@ -411,7 +714,7 @@ Have you ever wondered how they make these predictions? It might not be quite wh
 
 . . .
 
-Would you have guessed that it had something to do with a quarterback who played in the 1970s?
+Would you have guessed that it had something to do with a **quarterback who played in the 1970s**?
 
 ##  {background-image="images/virgil_carter.jpg" background-position="center" background-color="white" background-size="contain"}
 
@@ -421,7 +724,7 @@ Would you have guessed that it had something to do with a quarterback who played
 
 . . .
 
-***While also being a quarterback in the NFL***, Virgil Carter earned a Master's degree from Northwestern and taught statistics and mathematics at Xavier University.
+**While also being a quarterback in the NFL**, Virgil Carter earned a Master's degree from Northwestern and taught statistics and mathematics at Xavier University.
 
 . . .
 
@@ -461,11 +764,51 @@ To answer questions like these, Virgial Carter manually collected play-by-play d
 
 . . .
 
-He wanted to calculate the expected value of field position in terms of points.
+He wanted to calculate the **expected value** of field position in terms of **points**, or **expected points**.
 
 . . .
 
 ![](images/1971_expected_points.png){fig-align="center"}
+
+---
+
+What did he mean by **expected points**?
+
+. . .
+
+Suppose your offense starts a drive on its own 15 yard line. On average, how many points do teams in this situation typically go on to score?
+
+. . .
+
+From his calculations: **-0.637**. Why?
+
+. . .
+
+On average, teams starting from their 15 yard line are *less likely* to score next than their opponents.
+
+---
+
+But, imagine your offense completes a pass for 10 yards and moves to your 25. Now, your expected points is positive: **0.236**. Why?
+
+. . .
+
+![](images/1971_expected_points.png){fig-align="center"}
+
+. . .
+
+On average, teams on their own 25 yard line were *more likely* to score next than their opponents.
+
+---
+
+That 10 yard pass improved your situation quite a bit, changing your expected points from **-0.637** to **0.236**. 
+
+. . .
+
+The play's **expected points added** is **0.873**.
+
+. . .
+
+This is how we measure the value of plays in college football.
 
 ---
 
@@ -499,7 +842,7 @@ Expected Points After Play: -3.25\
 
 ---
 
-Side note: these estimates are not based on Virgil Carter's 1969 NFL Season, but my own expected points model trained on all college football plays from 2007-2019.
+Note: these estimates are not based on Virgil Carter's 1969 NFL season, but my own expected points model trained on all college football plays from 2007-2019.
 
 ---
 
@@ -509,7 +852,6 @@ Side note: these estimates are not based on Virgil Carter's 1969 NFL Season, but
 
 ![](images/my_expected_points.png){fig-align="center"}
 
-
 ---
 
 Virgil Carter's idea forms the basis of modern football analytics and how we evaluate teams and players:
@@ -517,18 +859,102 @@ Virgil Carter's idea forms the basis of modern football analytics and how we eva
 Good offenses generate points _in expectation_.\
 Good defenses prevent points _in expectation_.
 
+. . .
+
+We evaluate teams based on plays and their efficiency in terms of **expected points**.
+
+. . .
+
+This turns out to be an effective way to **measure a team's performance** for the purpose of predicting games.
+
 ---
 
 How do you predict college football games?
 
 . . .
 
-You **measure** the efficiency of **every team's offense and defense** based on every play that has occurred over the course of a season.[^3]
-
-You then use your team measurements to simulate the outcome of games.
-
+You **measure** the efficiency of **every team's offense and defense** based on every play that has occurred over the course of a season via expected points.[^3]
 
 [^3]: Technically, this is fairly involved and this measurement also includes plays from previous seasons with increasingly less weight assigned to them. A full discussion of this is done would take some time; I would be happy to talk about in **exhausting detail** with you later.
+
+---
+
+
+```{r}
+
+team_scores_by_week = function(data, season, week, team_info) {
+  
+  data |>
+    inner_join(
+      tibble(season = season)
+    ) |>
+    add_season_week() |>
+    group_by(team) |>
+    arrange(season, week) |>
+    group_by(team, season, week) |>
+    slice_head(n = 1) |>
+    ungroup() |>
+    group_by(team) |>
+    mutate(diff = round(score - dplyr::lag(score, 1), 2)) |>
+    ungroup() |>
+    inner_join(
+      tibble(week = week)
+    ) |>
+    arrange(desc(season_week), desc(score)) |>
+    mutate(rank = rank(-score)) |>
+    select(season, week, rank, team, everything()) |>
+    join_team_info(teams = team_info)
+  
+}
+
+team_scores |>
+  team_scores_by_week(season = 2024, week = 20, team_info = team_info) |>
+  team_scores_tbl() |>
+  gt::cols_hide("diff") |>
+  gt::cols_unhide("week") |>
+  gt::opt_interactive(active = F) |>
+  gtExtras::gt_theme_nytimes()
+
+```
+
+---
+
+You then use these **measurements of team efficiency** to simulate the outcome of games.
+
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-height: 6
+game_info |>
+  filter(grepl("Semifinal", notes)) |>
+  head(1) |>
+  inner_join(
+    semifinal_sims
+  ) |>
+  add_game_outcomes() |>
+  plot_playoff_sims(bins = 70)
+
+```
+
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-height: 6
+#| 
+game_info |>
+  filter(grepl("Semifinal", notes)) |>
+  tail(1) |>
+  inner_join(
+    semifinal_sims
+  ) |>
+  add_game_outcomes() |>
+  plot_playoff_sims(bins = 65)
+
+```
 
 ---
 
@@ -538,8 +964,9 @@ Is that really how they do it?
 
 I was working on my own series of models for evaluating teams and eventually decided to compare my work to that of ESPN and Vegas.
 
-
 ##  {background-image="images/espn_fpi.png" background-position="center" background-color="white" background-size="contain"}
+
+##  {background-image="images/espn_fpi_pre_nc.png" background-position="center" background-color="white" background-size="contain"}
 
 ---
 
@@ -548,8 +975,9 @@ I was working on my own series of models for evaluating teams and eventually dec
 #| warning: false
 #| fig-height: 6
 #| fig-align: center
-plot_vs_fpi = function(data) {
 
+plot_vs_fpi = function(data) {
+  
   b =
     data |>
     ggplot(aes(x=score, y=fpi))+
@@ -562,7 +990,7 @@ plot_vs_fpi = function(data) {
     ylab("ESPN Team Rating")+
     coord_cartesian(xlim = c(-45, 45),
                     ylim = c(-45, 45))
-
+  
   b
 }
 
@@ -591,6 +1019,7 @@ p +
 
 
 ```
+
 ::: {style="font-size: 75%;"}
 
 My end of year team ratings compared to the ESPN college football power index.
@@ -599,9 +1028,66 @@ My end of year team ratings compared to the ESPN college football power index.
 
 ---
 
+```{r}
+
+library(cfbplotR)
+
+vs_fpi |>
+  filter(season == 2024) |>
+  pivot_longer(
+    cols = c("score", "fpi")
+  ) |>
+  group_by(name) |>
+  mutate(rank = rank(-value)) |>
+  pivot_wider(
+    names_from = c("name"),
+    values_from = c("value", "rank")
+  ) |>
+  arrange(desc(value_score)) |>
+  head(15) |>
+  mutate(logo = team) |>
+  select(season, logo, team, value_score, rank_score, value_fpi, rank_fpi) |>
+  gt_tbl() |>
+  gt::fmt_number(
+    columns = c(starts_with("value_")),
+    decimals = 2
+  ) |>
+  gt::fmt_number(
+    columns = c(starts_with("rank_")),
+    decimals = 0
+  ) |>
+  gt::cols_align(
+    align = "center"
+  ) |>
+  cfbplotR::gt_fmt_cfb_logo(columns = c("logo")) |>
+  gt::cols_label(
+    value_score = "Phil Rating",
+    value_fpi = "ESPN FPI",
+    rank_score = "Rank",
+    rank_fpi = "Rank"
+  ) |>
+  gt::cols_merge(
+    columns = c("value_score", "rank_score"),
+    pattern = "{1} ({2})"
+  ) |>
+  gt::cols_merge(
+    columns = c("value_fpi", "rank_fpi"),
+    pattern = "{1} ({2})"
+  ) |>
+  # ) |>
+  gt_est_color(
+    columns = starts_with("value_"),
+    domain = c(-40, 40)
+  ) |>
+  gtExtras::gt_theme_nytimes()
+
+```
+
+---
+
 ::: {style="font-size: 75%;"}
 
-My spread vs opening spreads from providers throughout the 2024 season to date.
+My spread vs opening spreads from providers throughout the 2024 season.
 
 :::
 
@@ -633,105 +1119,104 @@ Betting lines for individual games are a little bit harder to crack; they are su
 
 ---
 
-::: {style="font-size: 75%;"}
-
-Pre-game simulations of Wisconsin @ USC. I felt slightly bad about nailing this one after that first half.
-
-:::
+However, my model performs about as well in predicting games.
 
 ```{r}
-#| message: false
-#| warning: false
 
-plot_game_sims <- function(data) {
-  data |>
-    group_by(game_id) |>
-    mutate(
-      pred = round_any(mean(.prediction), .5),
-      pred_team = case_when(
-        pred > 0 ~ home_team,
-        pred == 0 ~ "toss up",
-        pred < 0 ~ away_team
-      )
-    ) |>
-    mutate(game_label = paste(
-      paste(home_team, away_team, sep = " vs "), "\n",
-      paste(unique(pred_team), unique(abs(pred)), sep = " by ")
-    )) |>
-    mutate(win_color = case_when(
-      .prediction > 0 ~ home_team,
-      .prediction < 0 ~ away_team
-    )) |>
-    ggplot(aes(x = .prediction)) +
-    geom_histogram(aes(fill = win_color), bins = 80) +
-    cfbplotR::scale_fill_cfb(alt_colors = "USC") +
-    cfbplotR::scale_color_cfb(alt_colors = "USC") +
-    geom_vline(aes(xintercept = pred),
-      linetype = "dashed",
-      color = "grey80"
-    ) +
-    coord_cartesian(xlim = c(-75, 75)) +
-    xlab("Home Team Margin of Victory") +
-    ylab("Simulations") +
-    geom_vline(aes(xintercept = home_margin), linetype = "dashed")
-}
-
-draws |>
-  ungroup() |>
-  filter(home_team == "USC" & away_team == "Wisconsin") |>
-  inner_join(
-    games |>
-      add_game_outcomes() |>
-      select(game_id, home_margin),
-    by = join_by(game_id)
+sims_and_betting_predictions = 
+  sims_and_betting_lines |>
+  select(season, season_type, season_week, game_id, 
+         home_team, away_team, 
+         pred_margin, spread_margin, 
+         provider
   ) |>
-  plot_game_sims() +
-  facet_wrap(paste(start_date, game_label, sep = "\n") ~ .) +
-  geom_vline(aes(xintercept = home_margin), linetype = "dashed") +
-  theme_cfb() +
-  xlab("Home Team Margin of Victory") +
-  ylab("Simulations")
+  inner_join(
+    game_info
+  ) |>
+  pivot_wider(
+    names_from = "provider",
+    values_from = "spread_margin"
+  ) |>
+  select(season, season_type, season_week, game_id, 
+         home_team, away_team, home_points, away_points,
+         Phil = pred_margin,
+         Bovada,
+         `ESPN Bet`,
+         DraftKings
+  ) |>
+  add_game_outcomes() |>
+  pivot_longer(
+    cols = c("Phil", "Bovada", "ESPN Bet", "DraftKings"),
+    names_to = c("provider"),
+    values_to = c("pred_margin")
+  ) |>
+  mutate(
+    home_pred = case_when(
+      pred_margin > 0 ~ 'yes',
+      pred_margin < 0 ~ 'no'
+    ),
+    home_pred = factor(home_pred, levels = c("yes", "no"))
+  )
+
+sims_and_betting_predictions |>
+  add_correct() |>
+  filter(!is.na(correct)) |>
+  group_by(season, provider, correct) |>
+  count() |>
+  pivot_wider(names_from = c("correct"),
+              values_from = c("n")) |>
+  mutate(record = paste(yes, no, sep = "-")) |>
+  mutate(games = yes + no,
+         accuracy = yes / games) |>
+  select(
+    season, model = provider, games, record, accuracy
+  ) |>
+  ungroup() |>
+  arrange(desc(accuracy)) |>
+  gt_tbl() |>
+  gt::fmt_number(columns = c("accuracy"),
+                 decimals = 3) |>
+  gt::cols_align(
+    columns = c("games", "record", "accuracy"),
+    align = "center"
+  ) |>
+  gtExtras::gt_theme_nytimes()
 
 ```
 
-
 ---
 
-::: {style="font-size: 75%;"}
-
-But, as with all predictive models, I don't nail every prediction. Happily, Vegas and I were both quite wrong about Wisconsin @ Rutgers last week.
-
-:::
+My record against the spread for each provider.
 
 ```{r}
-#| message: false
-#| warning: false
-draws |>
-  ungroup() |>
-  filter(home_team == 'Wisconsin' | away_team == 'Wisconsin') |>
-  inner_join(
-    games |>
-      add_game_outcomes() |>
-      select(game_id, home_margin),
-    by = join_by(game_id)
-  ) |>
-  plot_game_sims()+
-  facet_wrap(paste(start_date, game_label, sep = "\n") ~ .)+
-  geom_vline(aes(xintercept = home_margin), linetype = 'dashed')+
-  theme_cfb()+
-  xlab("Home Team Margin of Victory")+
-  ylab("Simulations")+
-  labs(
-    "upcoming games simulated as of 10/16/24"
+
+# sims_and_betting_lines |>
+#   inner_join(game_info) |>
+game_predictions_and_betting_lines |>
+  add_game_outcomes() |>
+  filter(completed == T) |>
+  filter(!is.na(spread)) |>
+  arrange(week) |>
+  select(game_id, season, week, home_team, away_team, home_prob, home_margin, pred_margin, provider, spread, spread_open, spread_margin) |>
+  add_spread_cover() |>
+  assess_spread(groups = c("season", "provider")) |>
+  mutate(week = 'overall') |>
+  select(season, provider, games, record, accuracy = .estimate) |>
+  gt_tbl() |>
+  gt::fmt_number(columns = c("accuracy"), decimals = 3) |>
+  gt::cols_align(
+    align = "center"
   )
 
 ```
 
 ---
 
-Beyond prediction, we can monitor team performance not by outcomes but on their underlying play.
+Beyond prediction, using a model allows us to measure and monitor a team's performance based on their underlying play, not just their record.
 
-And Wisconsin's recent performances have provided some positive news (at least on defense).
+. . .
+
+For instance, Wisconsin's estimated performance by week since 2019.
 
 ---
 
@@ -741,13 +1226,9 @@ And Wisconsin's recent performances have provided some positive news (at least o
 #| fig-height: 6.5
 #| fig-align: center
 team_scores |>
-  filter(season >= 2018) |>
-  plot_team_score_by_week(team = 'Wisconsin', ranking = 25)
+  filter(season >= 2019) |>
+  plot_team_by_week(team = 'Wisconsin', ranking = c(10, 25))
 ```
-
----
-
-My model still thinks Wisconsin's pass/run offense is rather mediocre, but it likes the recent performances on defense.
 
 ---
 
@@ -756,13 +1237,30 @@ My model still thinks Wisconsin's pass/run offense is rather mediocre, but it li
 #| message: false
 #| fig-height: 6.5
 #| fig-align: center
-team_category_estimates |>
-  filter(season >= 2018) |>
-  plot_team_efficiency_by_category_and_week(team = "Wisconsin") +
-  scale_x_discrete(breaks = function(x){x[c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE)]})
+team_scores |>
+  filter(season >= 2010) |>
+  plot_team_by_week(team = 'Wisconsin', ranking = c(10, 25))
 
 ```
 
+---
+
+We can break this down further based on pass/rush, which paints a pretty grim picture for Wisconsin's offense.
+
+---
+
+```{r}
+#| warning: false
+#| message: false
+#| fig-height: 6.5
+#| fig-align: center
+
+team_category_estimates |>
+  filter(season >= 2010) |>
+  plot_team_efficiency_by_category_and_week(team = 'Wisconsin', ranking = c(10, 25))
+
+
+```
 
 ---
 
@@ -775,6 +1273,308 @@ Why am I telling you about this?
 . . .
 
 2) The best work and the best predictions tend to come from **really trying to understand the thing you are predicting**.
+
+---
+
+#
+
+Predicting the National Championship
+
+To that end, let's talk about the CFB Playoff.
+
+. . .
+
+How do you predict the college football playoff?
+
+You use your measures of team performance to simulate how the playoff might unfold. You do this thousands of times.
+
+---
+
+I ran my simulations on the eve of the playoff.
+
+I will admit, I was suspicious of the results and my own model. But this was the result.
+
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-height: 6.5
+#| fig-align: center
+#| 
+playoff_sims |>
+  gt_playoff_probs(
+    ratings = pre_playoff_ratings
+  ) |>
+  gt::opt_interactive()
+  # ) |>
+  # gt::tab_header("2024 College Football Playoff Simulations",
+  #                subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+```
+
+
+---
+
+```{r}
+#| fig-height: 6.5
+playoff_sims |>
+  summarize_wins_by_team() |>
+  plot_bracket()
+
+```
+
+---
+
+My model has been stubborn that Ohio State is the best team in college football since the end of September.
+
+```{r}
+#| fig-align: center
+
+# team_scores |>
+#   add_season_week() |>
+#   filter(week > 0) |>
+#   filter(season == 2024) |>
+#   team_rankings_tile()
+
+```
+
+<!-- --- -->
+
+<!-- ```{r} -->
+<!-- #| message: false -->
+<!-- #| warning: false -->
+<!-- team_scores |> -->
+<!--   filter(season == 2024) |> -->
+<!--   inner_join(team_info |> -->
+<!--                select(team = school, abbreviation)) |> -->
+<!--   add_season_week() |> -->
+<!--   group_by(season, team) |> -->
+<!--   mutate(start_label = case_when(week == min(week) ~ abbreviation), -->
+<!--          end_label = case_when(week == max(week) ~ abbreviation)) |> -->
+<!--   inner_join( -->
+<!--     tibble(team = playoff_teams) -->
+<!--   ) |> -->
+<!--   # inner_join( -->
+<!--   #   team_info |> -->
+<!--   #     filter(conference == 'Big Ten') |> -->
+<!--   #     select(team = school) -->
+<!--   # ) |> -->
+<!--   plot_team_lines(span = .13) + -->
+<!--   label_team(var = end_label, size = 2.5, nudge_x = 1.1)+ -->
+<!--   label_team(var = start_label, size = 2.5, nudge_x = -0.9) -->
+
+<!-- ``` -->
+
+<!-- --- -->
+
+---
+
+It has only grown more confident about Ohio State after each round.
+
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+playoff_sims |>
+  gt_playoff_probs(
+    ratings = pre_playoff_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+```
+
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+quarterfinal_sims |>
+  gt_quarterfinal_probs(
+    ratings = pre_quarterfinal_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+
+```
+
+
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+semifinal_sims |>
+  gt_semifinal_probs(
+    ratings = pre_semifinal_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+
+```
+
+---
+
+So far, the playoff has gone almost exactly to script.
+
+```{r}
+#| message: false
+#| warning: false
+postseason_predictions |>
+  inner_join(
+    game_info |>
+      filter(grepl("College Football Playoff", notes)) |>
+      filter(!grepl("Championship", notes))
+  ) |>
+  add_season_week() |>
+  select(
+    season, start_date, week, home, away, pred_margin, home_pred, home_prob, home_margin, home_win
+  ) |>
+  add_correct() |>
+  mutate(prediction = case_when(pred_margin > 0 ~ paste(home, pred_margin, sep = " by "),
+                                pred_margin < 0 ~ paste(away, -pred_margin, sep = " by "))) |>
+  mutate(actual = case_when(home_margin > 0 ~ paste(home, home_margin, sep = " by "),
+                            home_margin < 0 ~ paste(away, -home_margin, sep = " by "))) |>
+  select(season,  week, home, away, home_prob, prediction, actual, correct) |>
+  gt_tbl() |>
+  gt::cols_align(
+    columns = c(season, week, home_prob, prediction, actual, correct),
+    align = "center"
+  ) |>
+  gt::fmt_number(
+    columns = c("home_prob"),
+    decimals = 3
+  ) |>
+  gt::data_color(
+    columns = c("home_prob"),
+    domain = c(0, 1),
+    palette = c("white", "dodgerblue2")
+  ) |>
+  gt::cols_label(
+    home_prob = "Pr(Home Win)",
+    correct = "Correct?"
+  ) |>
+  gtExtras::gt_theme_nytimes() |>
+  gt::sub_values(
+    values = "yes",
+    replacement = "✓"
+  )
+# gt_correct_color()
+
+```
+
+
+---
+
+Which brings us to the national championship, which for my money is between the two best teams in college football.
+
+...
+
+```{r}
+#| message: false
+#| warning: false
+
+team_category_estimates |>
+  prepare_team_category_estimates() |>
+  unnest(everything()) |>
+  add_season_week() |>
+  group_by(season, week, team) |>
+  slice_tail(n = 1) |>
+  ungroup() |>
+  filter(season == 2024, week == 21) |>
+  inner_join(
+    tibble(team = c("Notre Dame", "Ohio State"))
+  ) |>
+  arrange(desc(estimate_pass_offense)) |>
+  team_category_estimates_tbl() |>
+  add_gt_formatting() |>
+  gt::opt_interactive(active = F)
+
+```
+
+```{r}
+
+team_scores |>
+  team_scores_by_week(season = 2024, week = 21, team_info = team_info) |>
+  plot_team_scores()
+
+```
+
+
+---
+
+What's the prediction?
+
+---
+
+```{r}
+#| warning: false
+#| message: false
+game_info |>
+  filter(grepl("National Championship", notes)) |>
+  inner_join(
+    championship_sims
+  ) |>
+  add_game_outcomes() |>
+  plot_playoff_sims(text = F)
+
+```
+
+---
+
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+championship_sims |>
+  gt_championship_probs(
+    ratings = pre_championship_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+
+```
+
+```{r}
+game_info |>
+  filter(grepl("National Championship", notes)) |>
+  inner_join(
+    championship_sims
+  ) |>
+  add_game_outcomes() |>
+  plot_playoff_sims()
+
+```
+
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 10
+#| column: page
+
+championship_sims |>
+  gt_championship_probs(
+    ratings = pre_championship_ratings
+  ) |>
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
+
+
+```
+
 
 #
 
