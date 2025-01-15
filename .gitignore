@@ -43,5 +43,5 @@ rsconnect/
 
 # ignore quarto artifacts
 /.quarto/
-/docs/
+/_output/
 /_site/

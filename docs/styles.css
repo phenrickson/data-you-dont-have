@@ -1,0 +1,9 @@
+.scroll {
+max-height: 600px;
+overflow-y: scroll;
+}
+
+.scroll-long {
+max-height: 800px;
+overflow-y: scroll;
+}

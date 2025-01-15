@@ -1,5 +1,5 @@
 project:
-  output-dir: _output
+  output-dir: docs
   type: default
   render:
   - presentation.qmd
