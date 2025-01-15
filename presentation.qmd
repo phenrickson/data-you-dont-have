@@ -246,7 +246,7 @@ Most organizations want to advance their capabilities in DS/ML/AI.
 
 . . .
 
-At the same, most organizations struggle to find value from them.
+At the same time, most organizations struggle to find value from them.
 
 . . .
 
@@ -505,6 +505,15 @@ The goal of the study was to identify how individual **health features** relate 
 
 ---
 
+```{r}
+#| warning: false
+#| message: false
+#| class: scroll
+
+gt_framingham
+
+```
+
 ---
 
 ```{r}
@@ -580,7 +589,7 @@ chd_data |>
   select(ten_year_chd, sex, sysbp) |>
   plot_ridge_chd() +
   scale_color_framingham() +
-  facet_grid2(sex ~ ., scales = "free", independent = "all")+
+  facet_grid2(sex ~ ., scales = "free_y")+
   xlab("systolic blood pressure")
 
 ```
@@ -646,7 +655,7 @@ fdr_prob =
 
 fdr_prob +
   geom_point(data = tibble(sysbp = 300, .pred = .95))+
-  annotate(x = 280, y = .7, geom = "text", label = "FDR's risk in 1944")+
+  annotate(x = 280, y = .7, geom = "text", label = "FDR's risk in 1945")+
   geom_segment(aes(x = 290, y = .81, xend = 299, yend =.93),
                arrow = arrow(length = unit(0.25, "cm")))
 
@@ -870,9 +879,9 @@ You **measure** the efficiency of **every team's offense and defense** based on 
 
 You simultaneously estimate a rating for every team's offense and defense, conditional on every other team's offense and defense.[^4]
 
-[^3]: Technically, this is fairly involved and this measurement also includes plays from previous seasons with increasingly less weight assigned to them. A full discussion of this is done would take some time; I would be happy to talk about in **exhausting detail** with you later.
+[^3]: Technically, this is fairly involved and this measurement also includes plays from previous seasons with increasingly less weight assigned to them. A full discussion of this is done would take some time; I would be happy to talk about it in **exhausting detail** with you later.
 
-[^4]: This is also fairly involved but can be accomplished via a ridge regression; again, I would be happy to talk about in **exhausting detail** with you later.
+[^4]: This is also fairly involved but can be accomplished via a ridge regression; again, I would be happy to talk about it in **exhausting detail** with you later.
 
 ---
 
@@ -953,7 +962,7 @@ team_scores |>
   gt::opt_interactive(
     use_compact_mode = F,
     use_filters = T,
-    page_size_default = 15
+    page_size_default = 10
   ) |>
   gt_est_color(
     columns = c("offense", "defense"),
@@ -1609,7 +1618,8 @@ team_category_estimates |>
 ---
 
 ```{r}
-
+#| fig-height: 6.5
+#| fig-align: center
 team_scores |>
   team_scores_by_week(season = 2024, week = 21, team_info = team_info) |>
   plot_team_scores()
@@ -1670,8 +1680,10 @@ Ohio State wins but doesn't cover. Ohio State by 4.5.
 ---
 
 ```{r}
-#| warning: false
 #| message: false
+#| warning: false
+#| fig-height: 6.5
+#| fig-align: center
 game_info |>
   filter(grepl("National Championship", notes)) |>
   inner_join(
