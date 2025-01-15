@@ -9,14 +9,13 @@ css: styles.css
 editor: source
 execute:
   cache: true
-  freeze: auto
 ---
 
 
 ```{r}
 #| include: false
 #| label: packages
-#| 
+#| cache: false
 library(targets)
 library(dplyr)
 library(tidyr)
@@ -33,6 +32,8 @@ library(gtExtras)
 
 # src code
 tar_source("R")
+source("R/framingham.R")
+source("R/reports.R")
 
 theme_set(
   theme_light()+
@@ -112,7 +113,6 @@ sims_and_betting_lines =
 #| include: false
 #| label: playoff sims
 
-source("R/reports.R")
 tar_load(playoff_teams)
 
 # postseason
@@ -495,17 +495,11 @@ gt_framingham
 
 ```
 
----
+<!-- --- -->
 
-The goal of the study was to identify how individual **health features** relate to an **outcome**, future onset of heart disease.
+<!-- The goal of the study was to identify how individual **health features** relate to an **outcome**, future onset of heart disease. -->
 
----
-
-```{r}
-
-gt_framingham
-
-```
+<!-- --- -->
 
 ```{r}
 #| warning: false
@@ -547,7 +541,9 @@ Notably, and as we would probably expect, *age*.
 chd_data |>
   filter(period == 1) |>
   select(ten_year_chd, sex, age) |>
-  plot_ridge_chd()
+  plot_ridge_chd()+
+  theme(strip.text.x = element_blank())+
+  xlab("age")
 
 ```
 
@@ -1047,7 +1043,7 @@ vs_fpi |>
   head(15) |>
   mutate(logo = team) |>
   select(season, logo, team, value_score, rank_score, value_fpi, rank_fpi) |>
-  gt_tbl() |>
+  gt::gt() |>
   gt::fmt_number(
     columns = c(starts_with("value_")),
     decimals = 2
@@ -1276,19 +1272,17 @@ Why am I telling you about this?
 
 ---
 
-#
+# Predicting the CFB Playoff
 
-Predicting the National Championship
+To that end, let's talk about the college football playoff
 
-To that end, let's talk about the CFB Playoff.
-
-. . .
+---
 
 How do you predict the college football playoff?
 
 You use your measures of team performance to simulate how the playoff might unfold. You do this thousands of times.
 
----
+. . .
 
 I ran my simulations on the eve of the playoff.
 
@@ -1299,19 +1293,14 @@ I will admit, I was suspicious of the results and my own model. But this was the
 ```{r}
 #| message: false
 #| warning: false
-#| fig-height: 6.5
-#| fig-align: center
-#| 
 playoff_sims |>
   gt_playoff_probs(
     ratings = pre_playoff_ratings
   ) |>
-  gt::opt_interactive()
-  # ) |>
-  # gt::tab_header("2024 College Football Playoff Simulations",
-  #                subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
-```
+  gt::tab_header("2024 College Football Playoff Simulations",
+                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 
+```
 
 ---
 
@@ -1403,7 +1392,6 @@ quarterfinal_sims |>
                  subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
 
 ```
-
 
 ---
 
