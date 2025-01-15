@@ -216,6 +216,8 @@ In the search for fame and fortune, hundreds of young professionals entered into
 
 Consulting specialists promised millions if your company could [unlock the potential of data]{.fg style="--col: #C6B90B"}.
 
+. . .
+
 AI, or Machine Learning, has been called the [new electricity]{.fg style="--col: #C6B90B"} and data, the [new oil]{.fg style="--col: #C6B90B"}."[^1]
 
 [^1]: Source: [Matheus Facure, *Causal Inference for the Brave and True*](Alveshttps://matheusfacure.github.io/python-causality-handbook/01-Introduction-To-Causality.html)
@@ -356,13 +358,13 @@ A month after coming under Dr. Bruenn's care, Roosevelt's blood pressure had ris
 
 ---
 
-In February, 1945, Lord Charles Moran, Churchill's personal physician wrote: "the Americans here cannot bring themselves to believe that he is finished. His daughter thinks he is not really ill, and his doctor backs her up. **I give him only a few months to live**."
+<!-- In February, 1945, Lord Charles Moran, Churchill's personal physician wrote: "the Americans here cannot bring themselves to believe that he is finished. His daughter thinks he is not really ill, and his doctor backs her up. **I give him only a few months to live**." -->
 
-. . .
+<!-- . . . -->
 
-FDR died two months later.
+<!-- FDR died two months later. -->
 
----
+<!-- --- -->
 
 FDR's death in April of 1945 prompted a national call for the study of cardiovascular disease.
 
@@ -476,7 +478,7 @@ I requested the (anonymized) data from the Framingham study for the purpose of t
 
 . . .
 
-This is a portion of the clinical data they collected on individuals from 1956 to 1968, who were then monitored for the next 24 years for various heart diseases.
+This is a portion of the clinical data they collected.
 
 ---
 
@@ -497,11 +499,13 @@ gt_framingham
 
 ```
 
-<!-- --- -->
+---
 
-<!-- The goal of the study was to identify how individual **health features** relate to an **outcome**, future onset of heart disease. -->
+The goal of the study was to identify how individual **health features** relate to an **outcome**, future onset of heart disease.
 
-<!-- --- -->
+---
+
+---
 
 ```{r}
 #| warning: false
@@ -522,7 +526,7 @@ gt_framingham_features
 #| message: false
 #| class: scroll
 gt_framingham_features |>
-  gt::data_color(columns = c("ten_year_chd"), palette = "Reds")
+  gt::data_color(columns = c("ten_year_chd"), palette = c("deepskyblue", "red"))
 
 ```
 
@@ -560,7 +564,7 @@ chd_data |>
   select(ten_year_chd, sex, age) |>
   plot_ridge_chd() +
   scale_color_framingham() +
-  facet_grid2(sex ~., scales = "free", independent = "all")+
+  facet_grid2(sex ~ ., scales = "free_y")+
   xlab("age")
 
 ```
@@ -602,16 +606,7 @@ And we end up finding that *age*, *systolic blood pressure*, *hdlc*, and *smokin
 
 ---
 
-```{r}
-#| message: false
-#| warning: false
-chd_results |>
-  filter(period == 1) |>
-  plot_effects(var = 'age') +
-  facet_wrap(sex  ~., scales = "free_x")
-
-```
----
+How does blood pressure affect the risk of heart disease?
 
 ```{r}
 #| message: false
@@ -651,7 +646,7 @@ fdr_prob =
 
 fdr_prob +
   geom_point(data = tibble(sysbp = 300, .pred = .95))+
-  annotate(x = 280, y = .7, geom = "text", label = "FDR's risk in 1945")+
+  annotate(x = 280, y = .7, geom = "text", label = "FDR's risk in 1944")+
   geom_segment(aes(x = 290, y = .81, xend = 299, yend =.93),
                arrow = arrow(length = unit(0.25, "cm")))
 
@@ -691,10 +686,10 @@ Why am I telling you about this?
 
 ---
 
-The methods we use to understand something **as simple as heart disease** are the same ones we use to understand something far more serious:  <span class="fragment">**college football**.</span>
+The methods we use to understand something **as simple as heart disease** are the same ones we use to make predictions for something far more serious:  <span class="fragment">**college football**.</span>
 
 
-# 2) How do you measure a college football team?
+# 2) How do you predict football games?
 
 ---
 
@@ -706,7 +701,7 @@ Have you ever looked at pre-game betting lines and win probabilities for footbal
 
 . . .
 
-Have you ever wondered how they make these predictions? It might not be quite what you think.
+Have you ever wondered how they make these predictions?
 
 . . .
 
@@ -756,7 +751,7 @@ To illustrate: how many points is each of the following plays worth?
 
 ---
 
-To answer questions like these, Virgial Carter manually collected play-by-play data from the entire 1969 NFL season.
+To answer questions like these, Virgil Carter manually collected play-by-play data from the entire 1969 NFL season.
 
 . . .
 
@@ -871,7 +866,7 @@ How do you predict college football games?
 
 You **measure** the efficiency of **every team's offense and defense** based on every play that has occurred over the course of a season via expected points.[^3]
 
-...
+. . .
 
 You simultaneously estimate a rating for every team's offense and defense, conditional on every other team's offense and defense.[^4]
 
@@ -1345,13 +1340,11 @@ Why am I telling you about this?
 
 2) The best work and the best predictions tend to come from **really trying to understand the thing you are predicting**.
 
-# Predicting the CFB Playoff
+# Bonus Round
+
+Predicting the CFB Playoff
 
 ##
-
-To that end, let's talk about the college football playoff
-
----
 
 How do you predict the college football playoff?
 
@@ -1396,11 +1389,11 @@ My model has been stubborn that Ohio State is the best team in college football 
 ```{r}
 #| fig-align: center
 
-# team_scores |>
-#   add_season_week() |>
-#   filter(week > 0) |>
-#   filter(season == 2024) |>
-#   team_rankings_tile()
+team_scores |>
+  add_season_week() |>
+  filter(week > 0) |>
+  filter(season == 2024) |>
+  team_rankings_tile()
 
 ```
 
@@ -1616,14 +1609,24 @@ team_category_estimates |>
 ---
 
 ```{r}
-#| fig-height: 6.5
-#| fig-align: center
-team_category_estimates |>
-  filter(season >= 2010) |>
-  plot_team_efficiency_by_category_and_week(team = 'Ohio State', ranking = c(10, 25))
+
+team_scores |>
+  team_scores_by_week(season = 2024, week = 21, team_info = team_info) |>
+  plot_team_scores()
 
 ```
 
+---
+
+```{r}
+#| warning: false
+#| message: false
+#| fig-height: 6.5
+#| fig-align: center
+team_category_estimates |>
+  filter(season >= 2019) |>
+  plot_team_efficiency_by_category_and_week(team = 'Ohio State', ranking = c(10, 25))
+```
 
 ---
 
@@ -1637,39 +1640,11 @@ team_category_estimates |>
   plot_team_efficiency_by_category_and_week(team = 'Notre Dame', ranking = c(10, 25))
 ```
 
-
-```{r}
-#| warning: false
-#| message: false
-#| fig-height: 6.5
-#| fig-align: center
-team_scores |>
-  filter(season >= 2019) |>
-  plot_team_by_week(team = 'Ohio State', ranking = c(10, 25))
-```
-
-
 ---
 
 What's the prediction?
 
 ---
-
-```{r}
-#| warning: false
-#| message: false
-game_info |>
-  filter(grepl("National Championship", notes)) |>
-  inner_join(
-    championship_sims
-  ) |>
-  add_game_outcomes() |>
-  plot_playoff_sims(text = F)
-
-```
-
----
-
 
 ```{r}
 #| message: false
@@ -1686,12 +1661,28 @@ championship_sims |>
 
 ```
 
-
 ---
 
 ~~Ireland wins but Krum gets the snitch~~
 
-Ohio State wins but doesn't cover.
+Ohio State wins but doesn't cover. Ohio State by 4.5.
+
+---
+
+```{r}
+#| warning: false
+#| message: false
+game_info |>
+  filter(grepl("National Championship", notes)) |>
+  inner_join(
+    championship_sims
+  ) |>
+  add_game_outcomes() |>
+  plot_playoff_sims(text = T)
+
+```
+
+
 
 #
 
