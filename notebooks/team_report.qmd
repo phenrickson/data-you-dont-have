@@ -176,14 +176,14 @@ plot_team_category_by_season = function(data, team, vjust = -0.25) {
 plot_team_by_season = function(data, team, hjust = 2.5, heights = c(1, 2.5), ...) {
   
   a = 
-    team_scores |>
+    data |>
     plot_team_score_by_season(team = team, hjust = hjust)+
     labs(x = NULL,
          title = paste("Team Efficiency by Season", team, sep = " - ")
     )
   
   b = 
-    team_scores |>
+    data |>
     plot_team_estimates_by_season(team = team, hjust = hjust, ...)+
     labs(title = NULL,
          subtitle = NULL)
