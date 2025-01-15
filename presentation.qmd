@@ -9,7 +9,7 @@ css: styles.css
 editor: source
 execute:
   cache: true
-  freeze: auto
+  freeze: false
 ---
 
 
@@ -30,6 +30,7 @@ library(ggridges)
 library(ggh4x)
 library(gt)
 library(gtExtras)
+library(cfbplotR)
 
 # src code
 tar_source("R")
@@ -482,7 +483,7 @@ This is a portion of the clinical data they collected on individuals from 1956 t
 ```{r}
 #| warning: false
 #| message: false
-
+#| class: scroll
 gt_framingham =
   chd_samp |>
   gt() |>
@@ -505,7 +506,7 @@ gt_framingham
 ```{r}
 #| warning: false
 #| message: false
-
+#| class: scroll
 gt_framingham_features =
   gt_framingham |>
   gt::data_color(columns = -c("ten_year_chd", "id"), direction = "column", palette = "Greys", na_color = "white")
@@ -519,7 +520,7 @@ gt_framingham_features
 ```{r}
 #| warning: false
 #| message: false
-
+#| class: scroll
 gt_framingham_features |>
   gt::data_color(columns = c("ten_year_chd"), palette = "Reds")
 
@@ -550,7 +551,7 @@ chd_data |>
 
 ---
 
-And the effect of `age` is slightly different for men and women, with men showing higher risk of heart disease at younger ages.
+And the effect of *age* is slightly different for men and women, with men showing higher risk of heart disease at younger ages.
 
 ```{r}
 #| message: false
@@ -583,8 +584,6 @@ chd_data |>
 ---
 
 What is the relationship between *age*, *blood pressure*, *resting heart rate* and the onset of future heart disease?
-
-. . .
 
 This is the purpose of a **model**, which we fit to the data to **estimate the effect** of these features on our outcome.
 
@@ -711,7 +710,7 @@ Have you ever wondered how they make these predictions? It might not be quite wh
 
 . . .
 
-Would you have guessed that it had something to do with a **quarterback who played in the 1970s**?
+Would you have guessed that it had something to do with a quarterback who played in the 1970s?
 
 ##  {background-image="images/virgil_carter.jpg" background-position="center" background-color="white" background-size="contain"}
 
@@ -872,13 +871,22 @@ How do you predict college football games?
 
 You **measure** the efficiency of **every team's offense and defense** based on every play that has occurred over the course of a season via expected points.[^3]
 
+...
+
+You simultaneously estimate a rating for every team's offense and defense, conditional on every other team's offense and defense.[^4]
+
 [^3]: Technically, this is fairly involved and this measurement also includes plays from previous seasons with increasingly less weight assigned to them. A full discussion of this is done would take some time; I would be happy to talk about in **exhausting detail** with you later.
+
+[^4]: This is also fairly involved but can be accomplished via a ridge regression; again, I would be happy to talk about in **exhausting detail** with you later.
 
 ---
 
+For example, this is where teams were rated in terms of efficiency on the eve of the College Football Playoff Semi Finals.
+
+---
 
 ```{r}
-
+#| class: scroll-long
 team_scores_by_week = function(data, season, week, team_info) {
   
   data |>
@@ -905,25 +913,90 @@ team_scores_by_week = function(data, season, week, team_info) {
 }
 
 team_scores |>
-  team_scores_by_week(season = 2024, week = 20, team_info = team_info) |>
-  team_scores_tbl() |>
-  gt::cols_hide("diff") |>
-  gt::cols_unhide("week") |>
-  gt::opt_interactive(active = F) |>
-  gtExtras::gt_theme_nytimes()
+  team_scores_by_week(
+    season = 2024, 
+    week = 20, 
+    team_info = team_info
+  ) |>
+  mutate(logo = team) |>
+  select(season, season_type, season_week, week, rank, logo, team, score, diff, offense, defense, special) |>
+  gt_tbl() |>
+  gt::cols_hide(
+    columns = c(season_type, season_week, week, special)
+  ) |>
+  gt::fmt_number(
+    columns = c(score),
+    decimals = 2
+  ) |>
+  gt::fmt_number(
+    columns = c(offense, defense, special),
+    decimals = 3
+  ) |>
+  gt::cols_align(
+    columns = -c(team),
+    align = "center"
+  ) |>
+  gt::cols_label(
+    season = "Season",
+    week = "Week",
+    rank = "Rank",
+    logo = "Logo",
+    team = "Team",
+    score = "Team Score",
+    diff = "∆ Score",
+    offense = "Offense",
+    defense = "Defense",
+    special = "Special Teams"
+  ) |>
+  # gt::cols_width(
+  #   season ~ px(75),
+  #   week ~ px(75),
+  #   rank ~ px(75),
+  #   logo ~ px(75)
+  # ) |>
+  cfbplotR::gt_fmt_cfb_logo(columns = "logo", height = 20) |>
+  gt::opt_interactive(
+    use_compact_mode = F,
+    use_filters = T,
+    page_size_default = 15
+  ) |>
+  gt_est_color(
+    columns = c("offense", "defense"),
+    domain = c(-.55, .55)
+  ) |>
+  # gt::cols_merge(
+  #   columns = c("score", "diff"),
+  #   pattern = "{1} ({2})"
+  # ) |>
+  gt_est_color(
+    columns = "score",
+    domain = c(-40, 40)
+  ) |>
+  gt::data_color(
+    columns = c("diff"),
+    domain = c(-12, 12),
+    palette = rev(my_gt_palette()),
+    na_color = 'white'
+  ) |>
+  add_gt_formatting()
 
 ```
 
 ---
 
-You then use these **measurements of team efficiency** to simulate the outcome of games.
+You then use these **estimates of team efficiency** to simulate the outcome of games.
+
+. . .
+
+For example, these are the simulations for the semi final games.
 
 ---
 
 ```{r}
 #| message: false
 #| warning: false
-#| fig-height: 6
+#| fig-height: 6.5
+#| fig-align: center
 game_info |>
   filter(grepl("Semifinal", notes)) |>
   head(1) |>
@@ -940,8 +1013,8 @@ game_info |>
 ```{r}
 #| message: false
 #| warning: false
-#| fig-height: 6
-#| 
+#| fig-height: 6.5
+#| fig-align: center
 game_info |>
   filter(grepl("Semifinal", notes)) |>
   tail(1) |>
@@ -1026,9 +1099,7 @@ My end of year team ratings compared to the ESPN college football power index.
 ---
 
 ```{r}
-
-library(cfbplotR)
-
+#| class: scroll-long
 vs_fpi |>
   filter(season == 2024) |>
   pivot_longer(
@@ -1041,10 +1112,10 @@ vs_fpi |>
     values_from = c("value", "rank")
   ) |>
   arrange(desc(value_score)) |>
-  head(15) |>
   mutate(logo = team) |>
   select(season, logo, team, value_score, rank_score, value_fpi, rank_fpi) |>
-  gt::gt() |>
+  head(25) |>
+  gt_tbl() |>
   gt::fmt_number(
     columns = c(starts_with("value_")),
     decimals = 2
@@ -1056,27 +1127,30 @@ vs_fpi |>
   gt::cols_align(
     align = "center"
   ) |>
-  cfbplotR::gt_fmt_cfb_logo(columns = c("logo")) |>
   gt::cols_label(
     value_score = "Phil Rating",
     value_fpi = "ESPN FPI",
-    rank_score = "Rank",
-    rank_fpi = "Rank"
+    rank_score = "Phil Rank",
+    rank_fpi = "ESPN Rank"
   ) |>
-  gt::cols_merge(
-    columns = c("value_score", "rank_score"),
-    pattern = "{1} ({2})"
-  ) |>
-  gt::cols_merge(
-    columns = c("value_fpi", "rank_fpi"),
-    pattern = "{1} ({2})"
-  ) |>
+  # gt::cols_merge(
+  #   columns = c("value_score", "rank_score"),
+  #   pattern = "{1} ({2})"
+  # ) |>
+  # gt::cols_merge(
+  #   columns = c("value_fpi", "rank_fpi"),
+  #   pattern = "{1} ({2})"
+  # ) |>
   # ) |>
   gt_est_color(
     columns = starts_with("value_"),
     domain = c(-40, 40)
   ) |>
-  gtExtras::gt_theme_nytimes()
+  gt::opt_interactive(page_size_default = 15) |>
+  cfbplotR::gt_fmt_cfb_logo(columns = "logo", height = 20) |>
+  add_gt_formatting()
+
+# gtExtras::gt_theme_nytimes()
 
 ```
 
@@ -1091,6 +1165,7 @@ My spread vs opening spreads from providers throughout the 2024 season.
 ```{r}
 #| message: false
 #| warning: false
+#| fig-align: center
 sims_and_betting_lines |>
   filter(!is.na(provider)) |>
   ggplot(aes(x=pred_margin, y= -1*spread_open))+
@@ -1181,14 +1256,12 @@ sims_and_betting_predictions |>
 
 ```
 
----
+. . .
 
 My record against the spread for each provider.
 
 ```{r}
 
-# sims_and_betting_lines |>
-#   inner_join(game_info) |>
 game_predictions_and_betting_lines |>
   add_game_outcomes() |>
   filter(completed == T) |>
@@ -1203,7 +1276,8 @@ game_predictions_and_betting_lines |>
   gt::fmt_number(columns = c("accuracy"), decimals = 3) |>
   gt::cols_align(
     align = "center"
-  )
+  ) |>
+  gtExtras::gt_theme_nytimes()
 
 ```
 
@@ -1271,9 +1345,9 @@ Why am I telling you about this?
 
 2) The best work and the best predictions tend to come from **really trying to understand the thing you are predicting**.
 
----
-
 # Predicting the CFB Playoff
+
+##
 
 To that end, let's talk about the college football playoff
 
@@ -1286,6 +1360,8 @@ You use your measures of team performance to simulate how the playoff might unfo
 . . .
 
 I ran my simulations on the eve of the playoff.
+
+. . .
 
 I will admit, I was suspicious of the results and my own model. But this was the result.
 
@@ -1466,7 +1542,7 @@ postseason_predictions |>
 
 Which brings us to the national championship, which for my money is between the two best teams in college football.
 
-...
+. . .
 
 ```{r}
 #| message: false
@@ -1484,18 +1560,92 @@ team_category_estimates |>
     tibble(team = c("Notre Dame", "Ohio State"))
   ) |>
   arrange(desc(estimate_pass_offense)) |>
-  team_category_estimates_tbl() |>
+  gt_tbl() |>
+  gt::fmt_number(
+    contains("estimate"),
+    decimals = 3
+  ) |>
+  gt::cols_merge(
+    columns = contains("pass_offense"),
+    pattern = "{1}<< ({2})>>"
+  ) |>
+  gt::cols_merge(
+    columns = contains("rush_offense"),
+    pattern = "{1}<< ({2})>>"
+  ) |>
+  gt::cols_merge(
+    columns = contains("pass_defense"),
+    pattern = "{1}<< ({2})>>"
+  ) |>
+  gt::cols_merge(
+    columns = contains("rush_defense"),
+    pattern = "{1}<< ({2})>>"
+  ) |>
+  gt::cols_label(
+    season = "Season",
+    week = "Week",
+    team = "Team",
+    estimate_pass_offense = "Pass Offense",
+    estimate_rush_offense = "Run Offense",
+    estimate_pass_defense = "Pass Defense",
+    estimate_rush_defense = "Run Defense"
+  )  |>
+  gt::cols_hide(
+    c(season_week, week)
+  ) |>
+  gt::cols_align(
+    c(contains("offense"), contains("defense"), "season", "week"),
+    align = "center"
+  ) |>
+  gt_est_color(columns = c(contains("estimate")),
+               domain = c(-0.75, 0.75)) |>
+  #cfbplotR::gt_fmt_cfb_logo(columns = "logo") |>
+  gt::cols_label(
+    logo = "Logo"
+  ) |>
+  gt::cols_hide("logo") |>
+  gt::cols_align(
+    align = "center",
+    columns = "logo"
+  ) |>
   add_gt_formatting() |>
-  gt::opt_interactive(active = F)
+  gtExtras::gt_theme_nytimes()
 
 ```
 
+---
+
 ```{r}
+#| fig-height: 6.5
+#| fig-align: center
+team_category_estimates |>
+  filter(season >= 2010) |>
+  plot_team_efficiency_by_category_and_week(team = 'Ohio State', ranking = c(10, 25))
 
+```
+
+
+---
+
+```{r}
+#| warning: false
+#| message: false
+#| fig-height: 6.5
+#| fig-align: center
+team_category_estimates |>
+  filter(season >= 2019) |>
+  plot_team_efficiency_by_category_and_week(team = 'Notre Dame', ranking = c(10, 25))
+```
+
+
+```{r}
+#| warning: false
+#| message: false
+#| fig-height: 6.5
+#| fig-align: center
 team_scores |>
-  team_scores_by_week(season = 2024, week = 21, team_info = team_info) |>
-  plot_team_scores()
-
+  filter(season >= 2019) |>
+  plot_team_by_week(team = 'Ohio State', ranking = c(10, 25))
 ```
 
 
@@ -1536,34 +1686,12 @@ championship_sims |>
 
 ```
 
-```{r}
-game_info |>
-  filter(grepl("National Championship", notes)) |>
-  inner_join(
-    championship_sims
-  ) |>
-  add_game_outcomes() |>
-  plot_playoff_sims()
 
-```
+---
 
+~~Ireland wins but Krum gets the snitch~~
 
-```{r}
-#| message: false
-#| warning: false
-#| fig-width: 10
-#| column: page
-
-championship_sims |>
-  gt_championship_probs(
-    ratings = pre_championship_ratings
-  ) |>
-  gt::tab_header("2024 College Football Playoff Simulations",
-                 subtitle = paste("Results based on 10,000 simulations from team efficiency model"))
-
-
-```
-
+Ohio State wins but doesn't cover.
 
 #
 
